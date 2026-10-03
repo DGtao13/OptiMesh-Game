@@ -1,6 +1,6 @@
-# Deterministic energy scenario and guided demo
+# Legacy energy-core specification
 
-All numbers are a configurable demonstration scenario, not external measurements or live tariffs. The map and existing visual polish are preserved.
+This documents the preserved original scenario used by `scenes/legacy_regression.tscn`. The playable exhibition game extends this core; its actual HVAC, multiple EVs, weather, tasks, score and comparison assumptions are in **SCENARIO.md**. All numbers are illustrative, not live measurements.
 
 ## Architecture and units
 

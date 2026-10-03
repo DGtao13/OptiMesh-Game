@@ -16,3 +16,8 @@ if ($LASTEXITCODE -ne 0) { throw "Prototype tests failed (exit $LASTEXITCODE)." 
 $testArgs[$testArgs.IndexOf('tests/prototype_test.gd')] = 'tests/demo_loop_test.gd'
 & $GodotPath @testArgs
 if ($LASTEXITCODE -ne 0) { throw "Demo loop tests failed (exit $LASTEXITCODE)." }
+& $GodotPath --headless --path $PSScriptRoot --script tests/management_test.gd
+if ($LASTEXITCODE -ne 0) { throw "Management model tests failed (exit $LASTEXITCODE)." }
+$testArgs[$testArgs.IndexOf('tests/demo_loop_test.gd')] = 'tests/exhibition_test.gd'
+& $GodotPath @testArgs
+if ($LASTEXITCODE -ne 0) { throw "Exhibition tests failed (exit $LASTEXITCODE)." }

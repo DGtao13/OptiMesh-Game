@@ -1,11 +1,11 @@
-; OptiMesh Game — visual interaction prototype (Godot 4.5+)
+; OptiMesh Game — local office management game (Godot 4.5+)
 config_version=5
 
 [application]
 config/name="OptiMesh Game"
 run/main_scene="res://scenes/main.tscn"
 config/features=PackedStringArray("4.5", "GL Compatibility")
-config/description="A lightweight office energy-management interaction prototype."
+config/description="A deterministic office management game with tasks, weather, service deadlines and real strategy comparisons."
 
 [display]
 window/size/viewport_width=1920

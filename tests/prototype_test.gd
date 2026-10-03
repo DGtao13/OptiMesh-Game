@@ -57,7 +57,7 @@ func check_panel_bounds(node: Node) -> void:
 		check_panel_bounds(child)
 
 func run() -> void:
-	app = load("res://scenes/main.tscn").instantiate()
+	app = load("res://scenes/legacy_regression.tscn").instantiate()
 	root.add_child(app)
 	await process_frame
 	check(app.screen == "start", "start screen loaded")

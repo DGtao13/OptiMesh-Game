@@ -52,7 +52,7 @@ func bounds(node: Node) -> void:
 		bounds(child)
 
 func run() -> void:
-	app = load("res://scenes/main.tscn").instantiate()
+	app = load("res://scenes/legacy_regression.tscn").instantiate()
 	root.add_child(app)
 	await process_frame
 	app.player_name = "Alex"

@@ -15,6 +15,7 @@ var ev_departed_visual := false
 var ev_vehicle_visible := true
 var departure_elapsed := 0.0
 var departure_car: Node2D
+var living_site := false
 
 func _ready() -> void:
 	set_process(false)
@@ -191,7 +192,7 @@ func _draw() -> void:
 		draw_rect(Rect2(x + 4, 339, 84, 134), Color("#67a88e"), false, 2)
 		box(x + 25, 322, 30, 15, 35, 5, Color("#f3f6ef"), Color("#4d6970"))
 		draw_rect(Rect2(x + 34, 341, 13, 9), MINT)
-		if index != 0 or not ev_departed_visual:
+		if not living_site and (index != 0 or not ev_departed_visual):
 			car(Vector2(x + 22, 365), [Color("#f1f3e7"), Color("#75a8bc"), Color("#ddc280")][index])
 		txt(Vector2(x + 23, 468), "EV 0%d" % (index + 1), 14, Color("#2a7965"))
 	# Conventional parking row.
@@ -200,7 +201,7 @@ func _draw() -> void:
 		draw_rect(Rect2(x, 354, 80, 133), Color("#d4ddd7"))
 		draw_rect(Rect2(x + 3, 357, 74, 127), Color("#f8faf2"), false, 2)
 		txt(Vector2(x + 33, 474), "P", 17, Color("#83968a"))
-		if index in [0, 2, 3, 5]:
+		if not living_site and index in [0, 2, 3, 5]:
 			car(Vector2(x + 16, 370), [Color("#839aa2"), Color("#b7c3bc"), Color("#d79d81"), Color("#e7eadd")][index % 4])
 	# Inverter, battery cabinets, transformer/meter.
 	box(1080, 235, 85, 45, 75, 18, Color("#e4e8d8"), Color("#f5f5e9"))
