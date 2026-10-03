@@ -5,6 +5,10 @@ const Store = preload("res://scripts/local_store.gd")
 const Audio = preload("res://scripts/game_audio.gd")
 const Activity = preload("res://scripts/site_activity.gd")
 const Face = preload("res://scripts/opti_face.gd")
+const MenuActivity = preload("res://scripts/menu_activity.gd")
+var menu_activity
+var name_keyboard_requested := false
+var ribbon_timers: Array=[]
 var store = Store.new()
 var sound
 var mode_name := "Demo"
@@ -72,8 +76,68 @@ func button(text: String, rect: Rect2, callback: Callable, parent: Node = null, 
 	item.add_theme_color_override("font_focus_color",Color.WHITE if primary else INK)
 	return item
 
+func toggle_fullscreen() -> void:
+	var mode := DisplayServer.window_get_mode()
+	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED if mode in [DisplayServer.WINDOW_MODE_FULLSCREEN,DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN] else DisplayServer.WINDOW_MODE_FULLSCREEN)
+
+func keyboard_supported() -> bool:
+	return DisplayServer.has_feature(DisplayServer.FEATURE_VIRTUAL_KEYBOARD)
+
+func show_name_keyboard() -> void:
+	DisplayServer.virtual_keyboard_show(name_input.text,name_input.get_screen_transform()*Rect2(Vector2.ZERO,name_input.size),DisplayServer.KEYBOARD_TYPE_DEFAULT,24,name_input.caret_column,name_input.caret_column)
+
+func hide_name_keyboard() -> void:
+	if name_keyboard_requested and keyboard_supported(): DisplayServer.virtual_keyboard_hide()
+	name_keyboard_requested=false
+
+func request_name_keyboard() -> void:
+	name_input.grab_focus()
+	name_input.edit()
+	if keyboard_supported() and not name_keyboard_requested:
+		name_keyboard_requested=true
+		show_name_keyboard()
+
+func clear_screen(next: String) -> void:
+	hide_name_keyboard()
+	menu_activity=null
+	# Touch-to-mouse dispatch may still be visiting the old controls. Keep them
+	# in the tree, hidden, until queue_free retires them at the end of the frame.
+	if is_instance_valid(ui):
+		ui.hide()
+		ui.queue_free()
+	ui=Control.new()
+	ui.name="Screen"
+	ui.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	add_child(ui)
+	screen=next
+
+func menu_background() -> void:
+	super.menu_background()
+	if screen!="start": return
+	for node in ui.get_children():
+		if node is SiteMap:
+			node.living_site=true
+			node.modulate=Color(1,1,1,0.85)
+			menu_activity=MenuActivity.new()
+			menu_activity.reduced=not store.data.ambient
+			node.add_child(menu_activity)
+
+func show_name() -> void:
+	super.show_name()
+	name_input.virtual_keyboard_show_on_focus=false
+	name_input.size.y=84
+	name_input.focus_exited.connect(hide_name_keyboard)
+	find_caption(ui,"← Back").size=Vector2(220,64)
+	button("Use Guest",Rect2(280,550,180,64),func(): name_input.text="Guest"; submit_name(),name_input.get_parent())
+	if not keyboard_supported():
+		name_error.text="Windows: open the system touch keyboard to type."
+		name_error.add_theme_font_size_override("font_size",17)
+		name_error.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		name_error.add_theme_color_override("font_color",MUTED)
+
 func show_start() -> void:
 	super.show_start()
+	button("Fullscreen",Rect2(1690,105,205,64),toggle_fullscreen)
 	for item in all_labels(ui):
 		if "local desktop prototype" in item.text: item.text="Local office challenge · 8 or 20 min"
 		elif "Explore a small workplace" in item.text: item.text="Run an office day. Keep services ready and discover what coordinated energy can do."
@@ -103,6 +167,7 @@ func show_modes() -> void:
 		elif "Simulate a clear office day" in node.text: node.text="Eight minutes of site management: EVs, comfort, weather, maintenance and a grid challenge."
 
 func find_caption(node: Node, caption: String) -> Button:
+	if node is Control and not node.visible: return null
 	if node is Button and node.text==caption: return node
 	for child in node.get_children():
 		var found=find_caption(child,caption)
@@ -169,16 +234,22 @@ func show_game() -> void:
 	objective_label=paragraph("",Rect2(34,120,370,45),18,INK)
 	forecast_label=label("",Rect2(34,171,370,26),15,MUTED)
 	ribbon_buttons.clear()
-	for i in range(3):
+	ribbon_timers.clear()
+	for i in range(2):
 		var index: int=i
-		var item=small_button("",Rect2(420+i*420,120,408,79),func(): select_ribbon(index))
+		var item=small_button("",Rect2(420+i*635,120,620,105),func(): select_ribbon(index))
 		item.alignment=HORIZONTAL_ALIGNMENT_LEFT
 		item.add_theme_font_size_override("font_size",19)
 		ribbon_buttons.append(item)
+		var timer=ProgressBar.new()
+		timer.show_percentage=false
+		timer.mouse_filter=Control.MOUSE_FILTER_IGNORE
+		place(timer,Rect2(12,96,596,5),item)
+		ribbon_timers.append(timer)
 	task_toggle=small_button("All tasks",Rect2(1700,130,195,50),toggle_tasks)
 	site=SiteMap.new()
 	site.living_site=true
-	place(site,Rect2(85,215,1380,620))
+	place(site,Rect2(85,235,1380,620))
 	site.scale=Vector2.ONE*1.27
 	site.clip_contents=true
 	site.object_selected.connect(select_object)
@@ -266,10 +337,23 @@ func refresh_guidance() -> void:
 		speech_tween=assistant_message.create_tween()
 		speech_tween.tween_property(assistant_message,"modulate:a",1.0,0.25)
 
+func dismiss_intro() -> void:
+	if is_instance_valid(intro_overlay):
+		intro_overlay.hide()
+		intro_overlay.queue_free()
+	intro_overlay=null
+
+func empty_inspector() -> void:
+	for child in inspector.get_children():
+		if child is CanvasItem: child.hide()
+		child.queue_free()
+	control_buttons.clear()
+	inspector_values.clear()
+
 func skip_tutorial() -> void:
 	if guidance.active():
 		super.skip_tutorial()
-		context_note="EV 01 needs 80% by 12:30. Click its task to compare ETA and departure. Space pauses while you plan."
+		context_note="Charging uses power alongside the office. Tap the highlighted task to compare charge rates; pause while you plan."
 		message_target="ev_1"
 		refresh_guidance()
 	else:
@@ -401,15 +485,12 @@ func refresh_simulation_ui() -> void:
 	super.refresh_simulation_ui()
 	if not is_instance_valid(task_panel): return
 	simulation.update_tasks()
-	var active:=0
-	for task in simulation.tasks:
-		if task.status=="active": active+=1
-	objective_label.text="Keep services ready.\n%d active · click a task to act" % active
+	objective_label.text="Next decision\nTap a task for its controls"
 	clock_detail.text="Paused · take your time" if paused else "%d× · %.2f game min/s" % [speed,pacing*speed]
 	grid_title.text="GRID · IMPORTING" if simulation.grid_kw>=0 else "GRID · EXPORTING"
 	grid_label.add_theme_color_override("font_color",Color("#ad5143") if elapsed_minutes>=930 and elapsed_minutes<975 and simulation.grid_kw>18 else INK)
-	grid_detail.text="18 kW LIMIT · %.1f / 5 min over" % simulation.limit_excess_minutes if elapsed_minutes>=930 and elapsed_minutes<975 else "Peak %.1f kW · cost €%.2f" % [simulation.max_grid_import_kw,simulation.electricity_cost_eur]
-	solar_detail.text="Battery %.0f%% · Climate %.1f°C" % [simulation.battery_soc(),simulation.inside_c]
+	grid_detail.text="18 kW LIMIT · %.1f / 5 min over" % simulation.limit_excess_minutes if elapsed_minutes>=930 and elapsed_minutes<975 else "Tap grid for peak and bill"
+	solar_detail.text="Live generation · tap for details"
 	var next: Array=[]
 	for event in Model.Scenario.EVENTS:
 		if event[0]>elapsed_minutes:
@@ -425,23 +506,33 @@ func refresh_simulation_ui() -> void:
 	task_toggle.text="All tasks (%d)" % simulation.tasks.size()
 	var ordered: Array=[]
 	for task in simulation.tasks:
-		if task.status=="active": ordered.append(task)
+		if task.status!="active": continue
+		if task.id.begins_with("ev_") and ev_plan(task.id).ready: continue
+		if task.id=="comfort" and not task_at_risk(task): continue
+		ordered.append(task)
 	ordered.sort_custom(func(a,b):
 		var urgency_a: float=task_urgency(a)
 		var urgency_b: float=task_urgency(b)
 		return urgency_a<urgency_b if not is_equal_approx(urgency_a,urgency_b) else a.deadline<b.deadline)
 	ribbon_targets.clear()
-	for i in range(3):
+	for i in range(ribbon_buttons.size()):
 		var item: Button=ribbon_buttons[i]
+		var timer: ProgressBar=ribbon_timers[i]
+		timer.visible=false
 		if i<ordered.size():
 			var task: Dictionary=ordered[i]
-			item.text=task.title+" · "+time_text(task.deadline)+"\n"+task_detail(task)
+			var countdown: Dictionary=task_timer(task)
+			item.text=task.title+"\n"+task_detail(task)+("\n"+countdown.text if countdown.visible else "")
+			timer.visible=countdown.visible
+			timer.value=countdown.ratio*100
+			style_task_card(item,timer,"risk" if task_at_risk(task) else "primary" if i==0 else "quiet")
 			item.add_theme_color_override("font_color",Color("#ad5143") if task_at_risk(task) else INK)
 			item.add_theme_color_override("font_focus_color",Color("#ad5143") if task_at_risk(task) else INK)
 			item.add_theme_color_override("font_hover_color",Color("#ad5143") if task_at_risk(task) else GREEN)
 			item.tooltip_text=task.description+". Click for controls."
 			ribbon_targets.append(task.object)
 		else:
+			style_task_card(item,timer,"quiet")
 			var tip: Dictionary=opportunity()
 			if i==2 and ordered.size()==1: tip={"title":"Climate · %.1f°C" % simulation.inside_c,"text":"%.0f%% comfortable · goal 95%%" % simulation.comfort_percent(),"object":"hvac"}
 			if i==2 and elapsed_minutes>=990: tip={"title":"Ready for the last hour?","text":"Click for 5× · comfort still matters","object":"__speed"}
@@ -477,6 +568,33 @@ func refresh_simulation_ui() -> void:
 		var current_mode: String="Setting: "+objects[selected_id].mode
 		if selection_mode.text!=current_mode: _update_mode_buttons()
 		else: refresh_control_availability()
+
+func style_task_card(item: Button,timer: ProgressBar,state: String) -> void:
+	if item.get_meta("visual_state","")==state: return
+	item.set_meta("visual_state",state)
+	var fill=StyleBoxFlat.new()
+	fill.bg_color=Color("#ad5143") if state=="risk" else GREEN
+	timer.add_theme_stylebox_override("fill",fill)
+	var card_style=item.get_theme_stylebox("normal").duplicate()
+	card_style.bg_color=Color("#f1dfd5") if state=="risk" else Color("#dae9e0") if state=="primary" else PAPER
+	item.add_theme_stylebox_override("normal",card_style)
+
+func task_timer(task: Dictionary) -> Dictionary:
+	var result := {"visible":false,"text":"","ratio":0.0,"minutes":0}
+	if task.status!="active" or task.id=="comfort": return result
+	if task.id.begins_with("ev_") and ev_plan(task.id).ready: return result
+	var starts := {"ev_1":480.0,"ev_2":630.0,"ev_3":810.0,"flex":660.0,"solar":780.0,"grid":930.0}
+	if not starts.has(task.id): return result
+	var remaining: float=maxf(0,task.deadline-elapsed_minutes)
+	result.visible=true
+	result.minutes=ceili(remaining)
+	result.ratio=clampf(remaining/maxf(1,task.deadline-starts[task.id]),0,1)
+	var prefix: String="Ends in " if task.id=="grid" else "Due in "
+	if remaining<=0: prefix="DEADLINE · "
+	elif task_at_risk(task): prefix="ACT NOW · "
+	elif remaining<=20 and task.id!="grid": prefix="SOON · "
+	result.text=prefix+"%d min · %s" % [result.minutes,time_text(task.deadline)]
+	return result
 
 func task_urgency(task: Dictionary) -> float:
 	if task.id.begins_with("ev_"):
@@ -563,6 +681,8 @@ func advance_clock(delta: float) -> void:
 		if note.type=="departure":
 			for task in simulation.tasks:
 				if task.id==note.object: note.text=task_explanation(task)
+		if note.type=="surprise" and note.object=="ev_3":
+			note.text="Change of plan: the visitor has less charging time. Compare its ETA; faster charging may be needed."
 		context_note=note.text
 		message_target=note.object
 		message_age=0
@@ -598,7 +718,7 @@ func show_notice_history() -> void:
 		history_text=""
 		for note in message_history.slice(0,6): history_text+="%s · %s\n\n" % [time_text(note.time),note.text]
 	paragraph(history_text,Rect2(30,90,960,570),20,INK,card)
-	button("Back to the site",Rect2(30,680,960,55),func(): overlay.get_parent().remove_child(overlay); overlay.queue_free(); notes_overlay=null; paused=was_paused,card,true)
+	button("Back to the site",Rect2(30,680,960,55),func(): overlay.hide(); overlay.queue_free(); notes_overlay=null; paused=was_paused,card,true)
 
 func offer_hint() -> void:
 	var key:=""
@@ -707,7 +827,7 @@ func show_score_help() -> void:
 	var card=panel(Rect2(490,220,940,640),PAPER,overlay)
 	label("Balanced service, then efficiency",Rect2(40,30,860,60),36,INK,card)
 	paragraph("Base points: EVs 450 · comfort 150 · wash 100 · grid 70 · cleaning 30 · cost 80 · peak 50 · solar use 50 · battery cycling 20.\n\nService factor: with 0 / 1 / 2 ready EVs, keep 40 / 45 / 50% of base points. Comfort below 80% keeps 40%; below 95% keeps 70%. An unfinished wash keeps 65%. Use the lowest factor, once. Recovering other services still earns points.\n\nCost and peak points fall as bill approaches €45 or peak approaches 60 kW. Solar points follow utilization; cycling points decline over three cycles. Grid allows five minutes over 18 kW.\n\nSame schedule/weather for all runs. The offline reference is a demo heuristic, not the production optimizer. Local ranking uses scoring rules 3.",Rect2(40,110,860,425),20,INK,card)
-	button("Got it",Rect2(40,550,860,60),func(): overlay.get_parent().remove_child(overlay); overlay.queue_free(),card,true)
+	button("Got it",Rect2(40,550,860,60),func(): overlay.hide(); overlay.queue_free(),card,true)
 
 func show_leaderboard() -> void:
 	clear_screen("leaderboard")
@@ -732,7 +852,7 @@ func show_settings() -> void:
 	var shade=ColorRect.new()
 	shade.color=Color(0.12,0.22,0.25,0.45)
 	place(shade,Rect2(0,0,1920,1080),settings_overlay)
-	var card=panel(Rect2(590,240,740,600),PAPER,settings_overlay)
+	var card=panel(Rect2(590,200,740,680),PAPER,settings_overlay)
 	label("Audio and display",Rect2(40,30,660,60),38,INK,card)
 	for i in range(2):
 		var key: String=["music","effects"][i]
@@ -759,10 +879,16 @@ func show_settings() -> void:
 	ambient.toggled.connect(func(value):
 		store.data.ambient=value
 		if is_instance_valid(activity): activity.reduced=not value
+		if is_instance_valid(menu_activity): menu_activity.reduced=not value
 	)
-	button("Done",Rect2(40,515,660,55),func(): store.save(); settings_overlay.get_parent().remove_child(settings_overlay); settings_overlay.queue_free(); settings_overlay=null; paused=was_paused,card,true)
+	button("Toggle fullscreen",Rect2(40,475,660,64),toggle_fullscreen,card)
+	button("Done",Rect2(40,585,660,64),func(): store.save(); settings_overlay.hide(); settings_overlay.queue_free(); settings_overlay=null; paused=was_paused,card,true)
 
 func _unhandled_key_input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F11:
+		toggle_fullscreen()
+		get_viewport().set_input_as_handled()
+		return
 	if screen=="leaderboard" and event is InputEventKey and event.pressed and event.keycode==KEY_DELETE and event.ctrl_pressed and event.shift_pressed:
 		var dialog=ConfirmationDialog.new()
 		dialog.dialog_text="Erase all local leaderboard entries? Audio settings will stay."
@@ -775,6 +901,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 	super._unhandled_key_input(event)
 
 func _input(event: InputEvent) -> void:
+	if event is InputEventKey and event.pressed and not event.echo and event.keycode==KEY_F11:
+		_unhandled_key_input(event)
+		return
+	if screen=="name" and event is InputEventScreenTouch and event.pressed and name_input.get_global_rect().has_point(event.position):
+		request_name_keyboard()
 	# Space must pause even after a mode button has keyboard focus; otherwise
 	# Godot activates that button before _unhandled_key_input can see the key.
 	if screen=="game" and not is_instance_valid(settings_overlay) and not is_instance_valid(notes_overlay) and event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE,KEY_1,KEY_2,KEY_3]:

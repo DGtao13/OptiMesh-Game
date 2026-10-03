@@ -75,9 +75,9 @@ func run() -> void:
 	app.message_age=10
 	app.simulation.notices=[{"time":480,"type":"surprise","object":"ev_3","text":"Read this deadline warning"},{"time":480,"type":"resolved","object":"flex","text":"A task finished"}]
 	app.advance_clock(0.01)
-	check(app.assistant_message.text=="Read this deadline warning","Urgent message takes priority")
+	check("visitor has less charging time" in app.assistant_message.text,"Urgent message takes priority with complementary action guidance")
 	app.advance_clock(0.1)
-	check(app.assistant_message.text=="Read this deadline warning","Task completion cannot erase a warning in the next frame")
+	check("visitor has less charging time" in app.assistant_message.text,"Task completion cannot erase a warning in the next frame")
 	app.advance_clock(6)
 	check(app.assistant_message.text=="A task finished","Queued completion gets its own reading interval")
 	check(app.message_history.size()==2,"Delivered notes can be reviewed")

@@ -26,3 +26,5 @@ $testArgs[$testArgs.IndexOf('tests/exhibition_test.gd')] = 'tests/playstyle_test
 if ($LASTEXITCODE -ne 0) { throw "Playstyle tests failed (exit $LASTEXITCODE)." }
 & $GodotPath --headless --path $PSScriptRoot --script tests/polish_test.gd
 if ($LASTEXITCODE -ne 0) { throw "Polish regression tests failed (exit $LASTEXITCODE)." }
+& $GodotPath --headless --path $PSScriptRoot --script tests/usability_test.gd
+if ($LASTEXITCODE -ne 0) { throw "Usability regression tests failed (exit $LASTEXITCODE)." }
