@@ -141,7 +141,9 @@ func update_tasks() -> void:
 			elif time_minutes >= 900: task.status = "failed"
 		elif task.id == "grid":
 			task.progress = "%.1f kW / 18 kW" % maxf(grid_kw,0)
-			if time_minutes >= 975: task.status = "completed" if limit_excess_minutes < 0.01 else "failed"
+			if time_minutes >= 975:
+				task.status = "completed" if limit_excess_minutes <= 5.0+EPS else "failed"
+				task.progress = "%.1f / 5 min above limit" % limit_excess_minutes
 		elif task.id == "comfort":
 			task.progress = "%.1f°C · %.0f%% comfortable" % [inside_c, comfort_percent()]
 			if day_finished: task.status = "completed" if comfort_percent() >= 95 else "failed"
@@ -154,14 +156,14 @@ func process_events() -> void:
 		match event[1]:
 			"arrival":
 				var v := vehicle(event[3])
-				add_task(v.id, "EV " + v.id.right(1) + " ready", "Meet its charge target", v.departure)
+				add_task(v.id, "EV 0" + v.id.right(1) + " ready", "Meet its charge target", v.departure)
 			"tariff":
 				if event[0] == 660: add_task("flex", "Equipment wash", "Run for 60 min before 15:00", 900.0)
 			"dust":
 				dirty = true
 				add_task("solar", "Clean rooftop solar", "Recover the lost 25% output", 900.0)
 			"surprise": vehicle("ev_3").departure = 945.0
-			"limit": add_task("grid", "Grid below 18 kW", "15:30–16:15 · no overload", 975.0)
+			"limit": add_task("grid", "Grid below 18 kW", "15:30–16:15 · 5 min grace total", 975.0)
 	if cleaning_end > 0 and time_minutes >= cleaning_end - EPS:
 		dirty = false
 		cleaned = true
@@ -238,10 +240,12 @@ func summary() -> Dictionary:
 	for v in vehicles: met += int(v.departed and v.success)
 	var utilization := 100.0*(solar_generated_kwh-exported_kwh)/maxf(solar_generated_kwh,EPS)
 	var cycles: float = battery_throughput/(2*config.battery_capacity_kwh)
-	var score := met*150.0 + comfort_percent()*1.5 + (100.0 if flex_minutes>=60-EPS else 0.0) + (70.0 if limit_excess_minutes<0.01 else 0.0) + (30.0 if cleaned else 0.0)
+	var score := met*150.0 + comfort_percent()*1.5 + (100.0 if flex_minutes>=60-EPS else 0.0) + (70.0 if limit_excess_minutes<=5.0+EPS else 0.0) + (30.0 if cleaned else 0.0)
 	if cleaned and cleaned_minute>900: score-=30.0
 	score += 80.0*clampf(1.0-(electricity_cost_eur+maintenance_cost)/45.0,0,1)
 	score += 50.0*clampf(1.0-max_grid_import_kw/60.0,0,1)+50.0*clampf(utilization/100,0,1)+20.0*clampf(1.0-cycles/3,0,1)
-	if met < 3: score = minf(score,600.0)
-	if comfort_percent()<80 or flex_minutes<60-EPS: score = minf(score,650.0)
-	return {"cost":electricity_cost_eur+maintenance_cost,"import":imported_kwh,"export":exported_kwh,"peak":max_grid_import_kw,"solar":solar_generated_kwh,"utilization":clampf(utilization,0,100),"battery_soc":battery_soc(),"cycles":cycles,"comfort":comfort_percent(),"ev_met":met,"flex":flex_minutes>=60-EPS,"grid":limit_excess_minutes<0.01,"score":roundi(score),"tasks":tasks.duplicate(true)}
+	if met < 3: score = minf(score,400.0+50.0*met)
+	if comfort_percent()<80: score = minf(score,400.0)
+	elif comfort_percent()<95: score = minf(score,700.0)
+	if flex_minutes<60-EPS: score = minf(score,650.0)
+	return {"cost":electricity_cost_eur+maintenance_cost,"import":imported_kwh,"export":exported_kwh,"peak":max_grid_import_kw,"solar":solar_generated_kwh,"utilization":clampf(utilization,0,100),"battery_soc":battery_soc(),"cycles":cycles,"comfort":comfort_percent(),"ev_met":met,"flex":flex_minutes>=60-EPS,"grid":limit_excess_minutes<=5.0+EPS,"overload_minutes":limit_excess_minutes,"score":roundi(score),"tasks":tasks.duplicate(true)}

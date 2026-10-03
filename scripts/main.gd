@@ -406,7 +406,7 @@ func show_object_panel() -> void:
 	selection_mode = label("", Rect2(28, 598, 350, 34), 23, GREEN, inspector)
 	var count: int = data.controls.size()
 	var gap := 8.0
-	var width := (350.0 - gap * (count - 1)) / count
+	var width := (350.0 - gap * (count - 1)) / maxi(count, 1)
 	for index in range(count):
 		var mode: String = data.controls[index]
 		var item := button(mode, Rect2(28 + index * (width + gap), 652, width, 52), apply_control.bind(mode), inspector)

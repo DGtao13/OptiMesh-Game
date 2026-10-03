@@ -21,3 +21,6 @@ if ($LASTEXITCODE -ne 0) { throw "Management model tests failed (exit $LASTEXITC
 $testArgs[$testArgs.IndexOf('tests/demo_loop_test.gd')] = 'tests/exhibition_test.gd'
 & $GodotPath @testArgs
 if ($LASTEXITCODE -ne 0) { throw "Exhibition tests failed (exit $LASTEXITCODE)." }
+$testArgs[$testArgs.IndexOf('tests/exhibition_test.gd')] = 'tests/playstyle_test.gd'
+& $GodotPath @testArgs
+if ($LASTEXITCODE -ne 0) { throw "Playstyle tests failed (exit $LASTEXITCODE)." }

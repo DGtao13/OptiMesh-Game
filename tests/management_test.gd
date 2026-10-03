@@ -44,6 +44,7 @@ func run() -> void:
 	eco.control("hvac","Eco")
 	eco.advance(600)
 	check(eco.inside_c>sim.inside_c and eco.comfort_percent()<80,"Comfort prevents permanent Eco exploit")
+	check(eco.summary().score<=400,"Severe comfort failure cannot earn a competent score")
 	var boost=Model.new()
 	boost.control("hvac","Boost")
 	boost.advance(600)
@@ -80,6 +81,16 @@ func run() -> void:
 	overload.control("ev_3","Fast")
 	overload.advance(45)
 	check(overload.limit_excess_minutes>0,"Real grid violation counted")
+	for duration in [3.0,6.0]:
+		var recovery=Model.new()
+		recovery.advance(450)
+		recovery.control("battery","Charge")
+		recovery.control("hvac","Boost")
+		recovery.advance(duration)
+		recovery.control("battery","Discharge")
+		recovery.control("hvac","Normal")
+		recovery.advance(45-duration)
+		check(recovery.summary().grid==(duration<5),"Grid grace accepts brief recovery and rejects sustained overload")
 	var late=Model.new()
 	late.advance(425)
 	late.control("solar","Clean")
@@ -111,6 +122,8 @@ func run() -> void:
 	var reloaded=Store.new("user://test_board.json")
 	check(reloaded.data.entries.size()==1 and reloaded.data.entries[0].name=="Test","Leaderboard survives reload")
 	check(reloaded.data.entries[0].score==reference.score,"Score survives JSON number conversion")
+	reloaded.data.entries.append({"name":"Previous rules","score":1000.0,"cost":0.0,"mode":"Demo"})
+	check(reloaded.current_entries().size()==1,"Previous score rules preserved but excluded from current ranking")
 	reloaded.data.mute=true
 	reloaded.data.music=0.1
 	reloaded.save()

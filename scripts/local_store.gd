@@ -1,5 +1,6 @@
 extends RefCounted
 const PATH = "user://exhibition_v1.json"
+const SCORE_RULES = 2
 var data := {"version":1,"entries":[],"music":0.22,"effects":0.35,"mute":false,"ambient":true}
 var last_error := ""
 
@@ -31,10 +32,15 @@ func save() -> bool:
 	return error==OK
 
 func record(name: String, result: Dictionary, mode: String) -> int:
-	var entry := {"name":name.strip_edges().left(24),"score":result.score,"cost":result.cost,"ev":result.ev_met,"mode":mode,"stamp":Time.get_datetime_string_from_system(),"token":str(Time.get_ticks_usec())}
+	var entry := {"name":name.strip_edges().left(24),"score":result.score,"cost":result.cost,"ev":result.ev_met,"mode":mode,"rules":SCORE_RULES,"stamp":Time.get_datetime_string_from_system(),"token":str(Time.get_ticks_usec())}
 	data.entries.append(entry)
-	data.entries.sort_custom(func(a,b): return a.score>b.score if a.score!=b.score else a.cost<b.cost)
-	var rank: int = data.entries.find(entry)+1
+	data.entries.sort_custom(func(a,b):
+		if (a.get("rules",1)==SCORE_RULES)!=(b.get("rules",1)==SCORE_RULES): return a.get("rules",1)==SCORE_RULES
+		return a.score>b.score if a.score!=b.score else a.cost<b.cost)
+	var rank: int = current_entries().find(entry)+1
 	data.entries=data.entries.slice(0,50)
 	save()
 	return rank
+
+func current_entries() -> Array:
+	return data.entries.filter(func(entry): return entry.get("rules",1)==SCORE_RULES)

@@ -17,7 +17,7 @@ This is a deliberately simplified deterministic management game, not a building-
 | 13:30 | EV 03 arrives: 45 kWh, 35% → 75%, initially leaves 16:45. |
 | 14:30 | Surprise: EV 03 departure moves to 15:45. The task and inspector update. |
 | 15:00 | Price rises to €0.32/kWh; wash/cleaning deadline. |
-| 15:30–16:15 | Keep actual grid import ≤18 kW. Any more than 0.01 simulated minutes above the limit fails the task. |
+| 15:30–16:15 | Keep actual grid import ≤18 kW. Five total simulated minutes above the limit is a recovery budget; exceeding it fails the task. |
 | 15:45 | Visitor leaves on revised schedule. |
 | 16:30 | EV 02 leaves. |
 | 17:00 | Price €0.24/kWh; remaining office management. |
@@ -52,7 +52,7 @@ Efficiency points:
 - Solar-use proxy: `50 × utilization / 100`.
 - Battery: `20 × clamp(1 − equivalent_cycles / 3, 0, 1)`.
 
-Round the total to the nearest integer. Any missed EV caps it at **600**. Comfort below 80% or an unfinished wash caps it at **650**. Apply both caps when applicable. Ignoring services cannot win by reducing the bill. The results screen offers **How scoring works** and names missed tasks. EV/task status is independent of score.
+Round the total to the nearest integer. Missing EVs caps it at **400 + 50 per ready EV** (400/450/500 for zero/one/two). Comfort below 80% caps it at **400**, or below the 95% service target at **700**. An unfinished wash caps it at **650**. Apply the lowest applicable cap. These scoring rules 2 follow six different play styles: a €9.65 bill with only 43% comfort must not tie an EV-first run with comfortable rooms. The results screen explains the actual failure, retry action and real cost difference from Normal. EV/task status remains independent of score.
 
 ## Normal baseline and reference controller
 
@@ -68,6 +68,6 @@ Validated reference: all three EVs, wash, comfort, cleaning and grid requirement
 
 `local_store.gd` writes `user://exhibition_v1.json`: bounded top-50 entries (name, score, cost, EV count, mode, timestamp), music/effects volume, mute and ambient toggle. Standard Windows location: `%APPDATA%\Godot\app_userdata\OptiMesh Game\`. Test runs redirect AppData into ignored `.tools/profile` and use separate test files.
 
-Entries rank by score descending, then cost ascending. Demo and Normal share the scenario and score, with mode shown. One completed player session creates one entry; comparison runs do not enter the board. Invalid/corrupt files fall back to defaults, malformed entries are filtered, and a storage failure leaves the game playable and reports that persistence failed. Temporary-file replacement avoids partially written JSON.
+Current scoring-rule entries rank by score descending, then cost ascending. New entries carry `rules: 2`; older entries stay in the bounded file but do not compete on the current leaderboard. Current entries take priority when truncating to 50. Demo and Normal share the scenario and score, with mode shown. One completed player session creates one entry; comparison runs do not enter the board. Invalid/corrupt files fall back to defaults, malformed entries are filtered, and a storage failure leaves the game playable and reports that persistence failed. Temporary-file replacement avoids partially written JSON.
 
 Administrator reset requires Ctrl+Shift+Delete on the leaderboard and explicit confirmation; settings are preserved. There is no account, LAN synchronization or server. Menus/retry replace one UI subtree. Two audio players persist for the app; activity actors are bounded drawing operations. Audio playback is stopped/released at shutdown.

@@ -12,8 +12,9 @@ New Game → name → Demo or Normal. **Demo** advances 1.25 simulated minutes p
 
 Opti introduces the site, EV charging, battery and tariff planning. The clock waits during learning; Continue and Skip are available. Afterward, Opti announces arrivals, weather, maintenance, changed deadlines and the grid challenge, acknowledges resolved tasks, and warns about heat/overload. Important events return accelerated playback to 1× so players can read and react.
 
-- Click a **task** to open its controls; hover for its description. Completed/missed tasks remain visible.
-- Click equipment or its map label for detailed readings. All three EVs, climate, battery, solar cleaning and the equipment wash affect real simulation state. The wash is accessed through its task.
+- Click a **task in the deadline ribbon** to open its controls; hover for its description. **All tasks** opens history, including completed/missed tasks. Selecting equipment closes the drawer.
+- Click equipment or its map label for a contextual inspector. All three EVs, climate, battery, solar cleaning and the equipment wash affect real simulation state. The wash has its own map object and label. Close the inspector with × or Esc to see the whole site.
+- Opti's current tip offers **Open [equipment]**. Got it acknowledges only that tip. Quiet tips collapse after 18 seconds; the small Opti chip brings the message back. New events reopen it.
 - Meet EV departure targets, keep rooms comfortable, complete the wash/cleaning and manage the temporary grid limit. Lower cost/peak helps, but cannot compensate for abandoned services.
 - Pause/resume; choose 1× / 5× / 15×. Space toggles pause, 1/2/3 set speed, Esc closes the inspector (or skips the intro), F11 toggles fullscreen.
 - Settings provides music/effects volume, mute and reduced ambient visuals. These persist locally.
@@ -33,7 +34,7 @@ The leaderboard is local to this laptop, holds the top 50 runs and shows the top
 | Vector world / activity / companion | `scripts/site_map.gd`, `scripts/site_activity.gd`, `scripts/opti_face.gd` |
 | Preserved foundation | `scripts/energy_simulation.gd`, `scripts/main.gd`, `scripts/site_catalog.gd`, `scripts/demo_guidance.gd` |
 | Preserved regression scene | `scenes/legacy_regression.tscn` |
-| Tests | `tests/energy_simulation_test.gd`, `tests/prototype_test.gd`, `tests/demo_loop_test.gd`, `tests/management_test.gd`, `tests/exhibition_test.gd` |
+| Tests | `tests/energy_simulation_test.gd`, `tests/prototype_test.gd`, `tests/demo_loop_test.gd`, `tests/management_test.gd`, `tests/exhibition_test.gd`, `tests/playstyle_test.gd` |
 
 The new playable scene extends the previous UI and deterministic core. The legacy scene preserves every old assertion against its original scenario, including independent integration expectations. New model and real-scene suites cover the expanded exhibition game. `.gd.uid` files are stable script IDs.
 
@@ -50,4 +51,4 @@ Compatibility renderer, 1920×1080 logical canvas with uniform scaling/letterbox
 ./Test-Prototype.ps1 -Capture -Resolution 1280x720
 ```
 
-Each run executes all five suites. Captures go to ignored `artifacts/`. Exhibition tests isolate their leaderboard/preferences from real players and exercise a full reactive plan, failed unattended runs, UI containment, retry/menu, sound settings and repeated sessions. Real exhibition-laptop scaling, frame rate, speaker volume and first-time human comprehension still need an on-device playtest.
+Each run executes all six suites. Captures go to ignored `artifacts/`. Exhibition tests isolate their leaderboard/preferences from real players and exercise a full reactive plan, failed unattended runs, UI containment, retry/menu, sound settings and repeated sessions. The playstyle suite executes six different complete Demo strategies with audio enabled and records a message/results journal plus nine rendered moments per strategy. See **PLAYTEST.md** for qualitative observations and iteration history. Real exhibition-laptop scaling, frame rate, speaker volume and first-time human comprehension still need an on-device playtest.

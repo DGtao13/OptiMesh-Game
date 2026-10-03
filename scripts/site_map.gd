@@ -35,6 +35,7 @@ func _ready() -> void:
 	]
 	for index in range(3):
 		hit_regions.append({"id": "ev_%d" % (index + 1), "polygon": quad(90 + index * 105, 335, 92, 142, 0, 0)})
+	if living_site: hit_regions.append({"id":"flex","polygon":quad(945,270,85,30,10,40)})
 
 func quad(x: float, y: float, w: float, d: float, skew: float, height: float = 0.0) -> PackedVector2Array:
 	if height == 0.0:
@@ -43,6 +44,7 @@ func quad(x: float, y: float, w: float, d: float, skew: float, height: float = 0
 
 func object_at(point: Vector2) -> String:
 	var badges := {"solar": Rect2(435, 15, 145, 32), "hvac": Rect2(798, 54, 80, 32), "inverter": Rect2(1083, 194, 105, 32), "battery": Rect2(1076, 490, 100, 32), "grid": Rect2(1240, 230, 80, 32)}
+	if living_site: badges["flex"]=Rect2(948,315,145,32)
 	for id in badges:
 		if badges[id].has_point(point): return id
 	# Reverse order prioritizes roof equipment over its parent building.
@@ -204,6 +206,9 @@ func _draw() -> void:
 		if not living_site and index in [0, 2, 3, 5]:
 			car(Vector2(x + 16, 370), [Color("#839aa2"), Color("#b7c3bc"), Color("#d79d81"), Color("#e7eadd")][index % 4])
 	# Inverter, battery cabinets, transformer/meter.
+	if living_site:
+		box(945,270,85,30,40,10,Color("#d8e4e7"),Color("#f4f8f5"))
+		draw_circle(Vector2(990,315),12,Color("#537f8b"))
 	box(1080, 235, 85, 45, 75, 18, Color("#e4e8d8"), Color("#f5f5e9"))
 	draw_rect(Rect2(1105, 289, 46, 30), Color("#3e646a"))
 	txt(Vector2(1116, 309), "AC", 17, Color("#d4f0e3"))
@@ -227,6 +232,7 @@ func _draw() -> void:
 			var outline_color := MINT if region.id == selected_id else (Color("#ddaa3b") if region.id == guided_id else Color("#7cb6a3"))
 			draw_polyline(outline, outline_color, 4 if region.id == selected_id or region.id == guided_id else 2, true)
 	badge(Vector2(435, 15), "Rooftop solar", Color("#ddaa3b"))
+	if living_site: badge(Vector2(948,315),"Equipment wash",MINT)
 	badge(Vector2(798, 54), "HVAC", Color("#6d99ba"))
 	badge(Vector2(98, 281), "EV charging · 3 bays", MINT)
 	badge(Vector2(1083, 194), "Inverter", Color("#c99242"))

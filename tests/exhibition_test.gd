@@ -70,10 +70,30 @@ func run() -> void:
 	app.apply_control("Hold")
 	press("Got it")
 	check(not app.guidance.active() and not app.paused,"Existing onboarding completes on real controls")
-	click(Vector2(180,370))
+	app.skip_tutorial()
+	check(app.opti_chip.visible and not app.companion.visible,"Acknowledged tip collapses to compact chip")
+	press("Opti · current tip")
+	check(app.companion.visible and not app.opti_chip.visible,"Reopening current tip restores one readable message")
+	check(app.site.size.x*app.site.scale.x>1700 and not app.inspector.visible and not app.task_panel.visible,"World dominates with contextual panels collapsed")
+	app.toggle_tasks()
+	check(app.task_panel.visible,"Task history discoverable on demand")
+	await snapshot("task_drawer")
+	click(Vector2(560,160))
 	check(app.selected_id=="ev_1","Real viewport task click selects system")
-	click(Vector2(1215,690))
+	check(app.ribbon_buttons[0].get_theme_color("font_focus_color").get_luminance()<0.3,"Focused task text retains contrast on pale card")
+	press("×")
+	click(Vector2(1482,850))
 	check(app.selected_id=="battery","Scaled live map badge picks battery")
+	check(not app.task_panel.visible and app.inspector.visible,"Selection closes task drawer and opens contextual inspector")
+	app.apply_control("Discharge")
+	check("kW" in app.feedback.text,"Battery action explains numeric power consequence")
+	app.apply_control("Hold")
+	press("×")
+	click(Vector2(1350,637))
+	check(app.selected_id=="flex","Wash equipment is directly clickable on map")
+	app.select_object("grid")
+	check(app.control_buttons.is_empty(),"Monitoring-only grid has no misleading mode controls")
+	app.select_object("battery")
 	await snapshot("04_tasks")
 	bounds(app.ui)
 	# Reactive player plan, routed through actual inspector actions, not the reference.
@@ -126,6 +146,11 @@ func run() -> void:
 	app.advance_clock(8)
 	app.advance_clock(0.8)
 	check(app.speed==1,"Important event automatically restores readable speed")
+	app.start_demo()
+	app.skip_tutorial()
+	app.simulation.notices.append({"time":480,"type":"hint","object":"ev_1","text":"Keep this pending message"})
+	app.guide_action()
+	check(not app.simulation.notices.is_empty(),"Acknowledging Opti does not discard unseen notices")
 	# Repeat full sessions while animations/audio are alive. No actor/player accumulation.
 	for i in range(12):
 		app.start_demo()
@@ -151,6 +176,19 @@ func run() -> void:
 	app.store.data.ambient=false
 	app.activity.reduced=true
 	check(app.activity.reduced,"Reduced effects supported")
+	if capture:
+		app.skip_tutorial()
+		app.store.data.ambient=true
+		app.activity.reduced=false
+		app.set_process(true)
+		var start_ms: int=Time.get_ticks_msec()
+		var frames:=0
+		while Time.get_ticks_msec()-start_ms<3000:
+			await process_frame
+			frames+=1
+		print("LIVE FRAME SAMPLE: %.1f FPS over 3 seconds, %d root nodes, %d activity nodes" % [frames*1000.0/(Time.get_ticks_msec()-start_ms),app.get_child_count(),app.activity.get_child_count()])
+		check(app.simulation.time_minutes>480 and app.get_child_count()==2,"Live clock/animation sample retains bounded nodes")
+		app.set_process(false)
 	app.queue_free()
 	await process_frame
 	await create_timer(0.15).timeout # Let the audio server release its final playback.

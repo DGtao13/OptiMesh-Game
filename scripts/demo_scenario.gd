@@ -6,7 +6,7 @@ const EVS = [
 ]
 const EVENTS = [
 	[540.0,"comfort","The office is filling up. Check Climate: Eco saves power, but warm rooms lose comfort.","hvac"],
-	[600.0,"forecast","A cloud front is forecast for 11:30–12:15. Store surplus solar before it arrives.","battery"],
+	[600.0,"forecast","Clouds arrive at 11:30, until 12:15. Our battery is a reserve; check its charge before spending it.","battery"],
 	[630.0,"arrival","EV 02 arrived: 30% → 80% by 16:30. Choose its rate; three chargers share your grid.","ev_2"],
 	[660.0,"tariff","Cheap power until 15:00. The equipment wash needs 60 minutes before 15:00; start it during surplus.","flex"],
 	[690.0,"cloud","Clouds are cutting solar to 40%. The battery can bridge this dip.","battery"],
