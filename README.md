@@ -1,54 +1,77 @@
 # OptiMesh Game
 
-Standalone local **Godot 4.5+** office management game. Demo and Normal Mode share one deterministic 08:00–18:00 challenge. No backend, account, hardware connection or external assets are required.
+The standalone interactive energy-management game and exhibition demo for **OptiMesh**, built with **Godot 4.5+**. Manage an office site through a simulated working day and see how coordinated energy decisions affect cost, power peaks and service quality.
 
-## Launch
+The main OptiMesh platform is developed separately at [Praz40/OptiMesh](https://github.com/Praz40/OptiMesh), which contains the dashboard, backend, firmware, documentation and **OptiMesh Web Simulator**. This repository contains **OptiMesh Game**, the standalone Godot game. The Web Simulator is the browser simulator in the main platform repository.
 
-On this workstation use `./run.ps1` (or `./run.ps1 -Fullscreen`). The ignored `.tools/godot` directory contains the standard portable Godot runtime. Elsewhere import `project.godot` in standard Godot 4.5+ and press F5, or pass `-GodotPath C:\Tools\Godot.exe` to the launcher. No .NET, addons or export templates are needed. No standalone export is bundled.
+## What you manage
+
+Balance rooftop solar, battery storage, three EV chargers, HVAC comfort and an equipment wash against electricity prices and temporary grid constraints. Clouds, dirty panels, vehicle arrivals and a changed departure deadline create decisions throughout the day. The **Opti companion** introduces the site, highlights risks and forecasts, and explains consequences; recent notes let you reread delivered events.
+
+- **Demo Mode:** approximately eight minutes of running clock time, plus onboarding and pauses; intended for exhibition visitors.
+- **Normal Mode:** approximately twenty minutes, plus pauses; the same scenario with more time to plan.
+- **Score and local leaderboard:** up to 1000 points for services and efficiency, with serious service failures reducing the score. Rankings are stored locally on the machine.
+- **Results:** compare actual simulated **Normal operation**, **Player** and **OptiMesh demo reference** runs. The reference is an illustrative offline controller; it is not the production OptiMesh optimizer.
+
+The game runs locally without accounts, a backend or hardware connections. Audio is original and synthesized; the site uses lightweight vector drawing and Godot's Compatibility renderer.
+
+## Run with Godot
+
+1. Install the standard **Godot 4.5+** editor; the .NET edition is not required.
+2. Clone or download this repository.
+3. In Godot's Project Manager, select **Import** and open `project.godot`.
+4. Open the project and press **F5** to run the main scene.
+
+No addons or export templates are needed to play from the editor. Exported executables and the Godot runtime are not bundled in this repository.
+
+On Windows, the optional launcher accepts an installed executable:
+
+```powershell
+./run.ps1 -GodotPath 'C:\Tools\Godot.exe'
+./run.ps1 -GodotPath 'C:\Tools\Godot.exe' -Fullscreen
+```
+
+The launcher also checks `GODOT_PATH`, `godot` on PATH, or an optional local runtime in ignored `.tools/godot/`.
 
 ## Play
 
-New Game → name → Demo or Normal. **Demo** advances 1.25 simulated minutes per real second: eight minutes of clock time, plus onboarding/pauses. **Normal** advances 0.5: twenty minutes, plus pauses. Both use the same fair scenario, score and comparisons.
+Choose **New Game**, enter a name, then select Demo or Normal. The tutorial pauses time and can be skipped. Click a task in the deadline ribbon or equipment on the site to open its controls. **All tasks** includes completed and missed requirements. Opti offers a button to open the relevant equipment, and **Recent notes** pauses the day for rereading.
 
-Opti introduces the site, EV charging, battery and tariff planning. The clock waits during learning; Continue and Skip are available. Afterward, Opti announces arrivals, weather, maintenance, changed deadlines and the grid challenge, acknowledges resolved tasks, and warns about heat/overload. Important events return accelerated playback to 1× so players can read and react.
+Meet EV targets before departure, keep the office comfortable, complete maintenance and the wash, and manage the grid challenge. The inspector shows power, deadlines, ETAs and the effects of your choices. Important events return fast-forward to 1× to give you time to react.
 
-- Click a **task in the deadline ribbon** to open its controls; hover for its description. **All tasks** opens history, including completed/missed tasks. Selecting equipment closes the drawer.
-- Click equipment or its map label for a contextual inspector. All three EVs, climate, battery, solar cleaning and the equipment wash affect real simulation state. The wash has its own map object and label. Close the inspector with × or Esc to see the whole site.
-- Opti's current tip offers **Open [equipment]**. Got it acknowledges only that tip. Quiet tips collapse after 18 seconds; the small Opti chip brings the message back. New events reopen it. **Recent notes** pauses the day to reread the last six delivered events; closing it restores the previous pause state.
-- Meet EV departure targets, keep rooms comfortable, complete the wash/cleaning and manage the temporary grid limit. Lower cost/peak helps, but cannot compensate for abandoned services.
-- Pause/resume; choose 1× / 5× / 15×. Space toggles pause, 1/2/3 set speed, Esc closes the inspector (or skips the intro), F11 toggles fullscreen.
-- Settings provides music/effects percentages, a **Test sound** preview, mute and reduced ambient visuals. These persist locally.
-- Reset Day restarts the scenario and onboarding. At 18:00 see actual Normal / Player / OptiMesh demo results, score, rank and missed requirements. Play Again resets the full run; Main Menu retains the name.
+| Control | Action |
+|---|---|
+| Space | Pause / resume |
+| 1 / 2 / 3 | 1× / 5× / 15× speed |
+| Esc | Close inspector or skip the introduction |
+| F11 | Toggle fullscreen |
 
-The leaderboard is local to this laptop, holds the top 50 runs and shows the top ten. Administrator reset: on that screen press **Ctrl+Shift+Delete**, then confirm. No network synchronization is implemented.
+Settings include music/effects volume, a sound preview, mute and reduced ambient activity. **Reset Day** and **Play Again** start a new scenario. The leaderboard retains the top 50 current-rule runs and displays the top ten; it has no network synchronization. Administrator reset: **Ctrl+Shift+Delete** on the leaderboard, then confirm.
 
-## Systems and files
+## Current status
 
-| Area | Files |
-| --- | --- |
-| Playable scene/UI | `scenes/main.tscn`, `scripts/management_game.gd` |
-| Scenario, tasks and extended model | `scripts/demo_scenario.gd`, `scripts/management_simulation.gd` |
-| Comparison policies | `scripts/reference_runs.gd` |
-| Local ranking/settings | `scripts/local_store.gd` |
-| Original synthesized sound | `scripts/game_audio.gd` |
-| Vector world / activity / companion | `scripts/site_map.gd`, `scripts/site_activity.gd`, `scripts/opti_face.gd` |
-| Preserved foundation | `scripts/energy_simulation.gd`, `scripts/main.gd`, `scripts/site_catalog.gd`, `scripts/demo_guidance.gd` |
-| Preserved regression scene | `scenes/legacy_regression.tscn` |
-| Tests | `tests/energy_simulation_test.gd`, `tests/prototype_test.gd`, `tests/demo_loop_test.gd`, `tests/management_test.gd`, `tests/exhibition_test.gd`, `tests/playstyle_test.gd`, `tests/polish_test.gd` |
+Playable offline exhibition prototype with Demo/Normal modes, service-based scoring, deterministic comparisons and repeated-session regression coverage. The latest gameplay polish baseline is `44c76ba`. Rendered review covered **1920×1080**, **1366×768** and **1280×720**. Independent first-time visitor feedback, sustained performance on the actual exhibition laptop and perceived speaker balance remain practical validation steps.
 
-The new playable scene extends the previous UI and deterministic core. The legacy scene preserves every old assertion against its original scenario, including independent integration expectations. New model and real-scene suites cover the expanded exhibition game. `.gd.uid` files are stable script IDs.
+The scenario, thermal model and solar-use metric are deliberately simplified. See the scenario documentation for their assumptions and limits.
 
-See **SCENARIO.md** for exact assumptions, timeline, scoring, policies and storage; **SIMULATION.md** specifies the legacy core; **AUDIO.md** explains original audio generation; **VALIDATION.md** records runs and remaining hardware checks.
+## Documentation
 
-## Performance and validation
+- [SIMULATION.md](SIMULATION.md) — core energy model and accounting.
+- [SCENARIO.md](SCENARIO.md) — events, devices, score rules, reference policies and persistence.
+- [AUDIO.md](AUDIO.md) — synthesized audio and provenance.
+- [VALIDATION.md](VALIDATION.md) — final test counts, rendered coverage and remaining checks.
+- [POLISH_REVIEW.md](POLISH_REVIEW.md) — current refinement issue log, playthroughs and outcomes.
+- [PLAYTEST.md](PLAYTEST.md) — historical developer playtest report, clearly marked as superseded.
 
-Compatibility renderer, 1920×1080 logical canvas with uniform scaling/letterboxing, 60 FPS cap. Static campus drawing remains cached; one small activity layer redraws at 20 Hz. HUD/tasks update at 5 Hz. Bounded vector cars/people/clouds/birds, no physics, pathfinding, heavy textures, particles or lighting shaders. Disable ambient people/clouds/birds in Settings on slower machines; weather still affects real solar output.
+Source is in `scripts/`, scenes in `scenes/`, and regression suites in `tests/`. Godot `.gd.uid` files are tracked stable script identifiers. Local caches, runtime downloads, builds and validation captures are excluded from publication.
+
+## Run regression checks
+
+Pass your Godot console executable to the Windows test runner:
 
 ```powershell
-./Test-Prototype.ps1
-./Test-Prototype.ps1 -Capture -Resolution 1920x1080
-./Test-Prototype.ps1 -Capture -Resolution 1366x768
-./Test-Prototype.ps1 -Capture -Resolution 1280x720
+./Test-Prototype.ps1 -GodotPath 'C:\Tools\Godot.exe'
+./Test-Prototype.ps1 -GodotPath 'C:\Tools\Godot.exe' -Capture -Resolution 1280x720
 ```
 
-Each run executes all seven suites. Captures go to ignored `artifacts/`. Exhibition tests isolate their leaderboard/preferences from real players and exercise a full reactive plan, failed unattended runs, UI containment, retry/menu, sound settings and repeated sessions. The playstyle suite executes ten complete Demo strategies plus the strong strategy in Normal Mode, with audio enabled, a message/results journal and nine rendered moments per strategy. See **POLISH_REVIEW.md** for the current pass's direct desktop sessions, issue log and outcomes; **PLAYTEST.md** preserves the earlier pass as historical context. Real exhibition-laptop scaling, sustained frame rate, speaker volume and first-time human comprehension still need an on-device playtest.
+The runner executes seven suites. Rendered captures and journals are written to ignored `artifacts/`; test stores are separate from player rankings. Use 1920x1080 or 1366x768 for the other target sizes. Automated checks protect behavior; visitor playtesting is still needed to assess comprehension and enjoyment.
