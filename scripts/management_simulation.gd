@@ -54,7 +54,7 @@ func reset() -> void:
 	limit_excess_minutes = 0.0
 	served_kwh = 0.0
 	super.reset()
-	add_task("ev_1", "EV 01 ready", "Reach 80%", 750.0)
+	add_task("ev_1", "EV 01 to 80%", "Reach 80%", 750.0)
 	add_task("comfort", "Comfortable office", "Keep rooms between 20–25°C", 1080.0, "hvac")
 
 func add_task(id: String, title: String, description: String, deadline: float, object: String = "") -> void:
@@ -122,12 +122,13 @@ func _refresh_power() -> void:
 func update_tasks() -> void:
 	for task in tasks:
 		if task.id == "ev_1":
-			task.progress = "%.0f%% / 80%%" % ev_soc()
+			task.progress = "%.1f%% / 80%%" % (80.0 if ev_target_reached else floorf(ev_soc()*10)/10)
 			if ev_departed: task.status = "failed" if ev_departed_below_target else "completed"
 		elif task.id.begins_with("ev_"):
 			var v := vehicle(task.id)
 			task.deadline = v.departure
-			task.progress = "%.0f%% / %.0f%%" % [v.energy / v.capacity * 100,v.target]
+			var at_target: bool=v.energy>=v.capacity*v.target/100-EPS
+			task.progress = "%.1f%% / %.0f%%" % [v.target if at_target else floorf(v.energy/v.capacity*1000)/10,v.target]
 			if v.departed: task.status = "completed" if v.success else "failed"
 		elif task.id == "flex":
 			task.progress = "%.0f / 60 min" % flex_minutes
@@ -156,20 +157,20 @@ func process_events() -> void:
 		match event[1]:
 			"arrival":
 				var v := vehicle(event[3])
-				add_task(v.id, "EV 0" + v.id.right(1) + " ready", "Meet its charge target", v.departure)
+				add_task(v.id, "EV 0" + v.id.right(1) + " to %.0f%%" % v.target, "Meet its charge target", v.departure)
 			"tariff":
 				if event[0] == 660: add_task("flex", "Equipment wash", "Run for 60 min before 15:00", 900.0)
 			"dust":
 				dirty = true
 				add_task("solar", "Clean rooftop solar", "Recover the lost 25% output", 900.0)
-			"surprise": vehicle("ev_3").departure = 945.0
+			"surprise": vehicle("ev_3").departure = 960.0
 			"limit": add_task("grid", "Grid below 18 kW", "15:30–16:15 · 5 min grace total", 975.0)
 	if cleaning_end > 0 and time_minutes >= cleaning_end - EPS:
 		dirty = false
 		cleaned = true
 		cleaned_minute = time_minutes
 		cleaning_end = -1.0
-		notices.append({"time":time_minutes,"text":"Panels cleaned. Full generation restored; the €2 service is included in results.","object":"solar","type":"complete"})
+		# The task transition announces completion once, in the presentation layer.
 
 func comfort_percent() -> float:
 	return 100.0 * comfortable_minutes / maxf(time_minutes - START_MINUTE, EPS) if time_minutes > START_MINUTE else 100.0
@@ -244,8 +245,11 @@ func summary() -> Dictionary:
 	if cleaned and cleaned_minute>900: score-=30.0
 	score += 80.0*clampf(1.0-(electricity_cost_eur+maintenance_cost)/45.0,0,1)
 	score += 50.0*clampf(1.0-max_grid_import_kw/60.0,0,1)+50.0*clampf(utilization/100,0,1)+20.0*clampf(1.0-cycles/3,0,1)
-	if met < 3: score = minf(score,400.0+50.0*met)
-	if comfort_percent()<80: score = minf(score,400.0)
-	elif comfort_percent()<95: score = minf(score,700.0)
-	if flex_minutes<60-EPS: score = minf(score,650.0)
-	return {"cost":electricity_cost_eur+maintenance_cost,"import":imported_kwh,"export":exported_kwh,"peak":max_grid_import_kw,"solar":solar_generated_kwh,"utilization":clampf(utilization,0,100),"battery_soc":battery_soc(),"cycles":cycles,"comfort":comfort_percent(),"ev_met":met,"flex":flex_minutes>=60-EPS,"grid":limit_excess_minutes<=5.0+EPS,"overload_minutes":limit_excess_minutes,"score":roundi(score),"tasks":tasks.duplicate(true)}
+	# Scale instead of clipping: recovering another service always earns points,
+	# even after an EV is missed. Serious service failures still limit the total.
+	var service_factor := 1.0
+	if met < 3: service_factor = 0.4+0.05*met
+	if comfort_percent()<80: service_factor = minf(service_factor,0.4)
+	elif comfort_percent()<95: service_factor = minf(service_factor,0.7)
+	if flex_minutes<60-EPS: service_factor = minf(service_factor,0.65)
+	return {"cost":electricity_cost_eur+maintenance_cost,"import":imported_kwh,"export":exported_kwh,"peak":max_grid_import_kw,"solar":solar_generated_kwh,"utilization":clampf(utilization,0,100),"battery_soc":battery_soc(),"cycles":cycles,"comfort":comfort_percent(),"ev_met":met,"flex":flex_minutes>=60-EPS,"grid":limit_excess_minutes<=5.0+EPS,"overload_minutes":limit_excess_minutes,"score":roundi(score*service_factor),"base_score":roundi(score),"service_factor":service_factor,"tasks":tasks.duplicate(true)}

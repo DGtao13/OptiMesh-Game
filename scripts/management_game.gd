@@ -32,6 +32,11 @@ var opti_chip: Button
 var guidance_clock := 0.0
 var hint_cooldown := 0.0
 var hints_seen: Dictionary={}
+var message_priority := 0
+var message_history: Array=[]
+var forecast_label: Label
+var notes_overlay: Control
+var action_feedback_until := -1.0
 
 func small_button(text: String,rect: Rect2,callback: Callable,parent: Node=null) -> Button:
 	var item=button(text,rect,callback,parent)
@@ -57,6 +62,7 @@ func _ready() -> void:
 	sound.settings=store.data
 	add_child(sound)
 	super._ready()
+	theme.set_color("font_focus_color","CheckButton",INK)
 
 func button(text: String, rect: Rect2, callback: Callable, parent: Node = null, primary: bool = false) -> Button:
 	var item=super.button(text,rect,func():
@@ -125,6 +131,11 @@ func start_demo() -> void:
 	hints_seen.clear()
 	hint_cooldown=0
 	guidance_clock=0
+	message_priority=0
+	message_history.clear()
+	last_speech=""
+	message_target="ev_1"
+	action_feedback_until=-1
 	super.start_demo()
 	for item in all_labels(intro_overlay):
 		if "Get EV 01" in item.text: item.text="Keep the office ready for everyone."
@@ -137,6 +148,7 @@ func show_game() -> void:
 	label(mode_name+" · "+player_name,Rect2(34,58,310,28),16,MUTED)
 	clock_label=hud_card(Rect2(350,12,175,92),"OFFICE DAY",GREEN)
 	clock_detail=clock_label.get_parent().get_child(2)
+	clock_detail.add_theme_font_size_override("font_size",14)
 	price_label=hud_card(Rect2(540,12,210,92),"POWER PRICE")
 	price_label.get_parent().get_child(2).text="Import / kWh · export earns €0"
 	grid_label=hud_card(Rect2(765,12,260,92),"GRID")
@@ -154,12 +166,14 @@ func show_game() -> void:
 	label("Space: pause · 1/2/3: speed",Rect2(150,59,255,23),13,MUTED,transport)
 	small_button("Settings",Rect2(1705,14,105,40),show_settings)
 	small_button("Menu",Rect2(1820,14,75,40),show_start)
-	objective_label=paragraph("",Rect2(34,126,370,70),19,INK)
+	objective_label=paragraph("",Rect2(34,120,370,45),18,INK)
+	forecast_label=label("",Rect2(34,171,370,26),15,MUTED)
 	ribbon_buttons.clear()
 	for i in range(3):
 		var index: int=i
 		var item=small_button("",Rect2(420+i*420,120,408,79),func(): select_ribbon(index))
 		item.alignment=HORIZONTAL_ALIGNMENT_LEFT
+		item.add_theme_font_size_override("font_size",19)
 		ribbon_buttons.append(item)
 	task_toggle=small_button("All tasks",Rect2(1700,130,195,50),toggle_tasks)
 	site=SiteMap.new()
@@ -179,7 +193,7 @@ func show_game() -> void:
 	task_buttons.clear()
 	for i in range(7):
 		var item=small_button("",Rect2(12,53+i*80,356,74),func(): pass,task_panel)
-		item.add_theme_font_size_override("font_size",16)
+		item.add_theme_font_size_override("font_size",18)
 		item.alignment=HORIZONTAL_ALIGNMENT_LEFT
 		task_buttons.append(item)
 	task_panel.visible=false
@@ -191,13 +205,14 @@ func show_game() -> void:
 	fps_label=label("",Rect2(0,0,1,1),12,INK,hidden)
 	upcoming_label=label("",Rect2(0,0,1,1),12,INK,hidden)
 	ev_status_label=label("",Rect2(0,0,1,1),12,INK,hidden)
-	companion=panel(Rect2(410,947,1100,116),Color("#dae9e0"))
+	companion=panel(Rect2(450,936,1020,130),Color("#dae9e0"))
 	face=Face.new()
 	place(face,Rect2(15,24,56,56),companion)
 	guide_title=label("OPTI · YOUR COLLEAGUE",Rect2(85,8,780,26),15,GREEN,companion)
-	assistant_message=paragraph("",Rect2(85,38,905,72),20,INK,companion)
-	guide_button=small_button("Inspect",Rect2(896,7,184,32),guide_action,companion)
-	guide_skip=small_button("Skip",Rect2(1004,70,75,32),skip_tutorial,companion)
+	assistant_message=paragraph("",Rect2(85,38,825,88),20,INK,companion)
+	guide_button=small_button("Inspect",Rect2(816,7,184,32),guide_action,companion)
+	small_button("Recent notes",Rect2(656,7,150,32),show_notice_history,companion)
+	guide_skip=small_button("Skip",Rect2(924,90,75,32),skip_tutorial,companion)
 	opti_chip=small_button("Opti · current tip",Rect2(805,1015,280,45),func(): companion.visible=true; opti_chip.visible=false; guidance_clock=0)
 	opti_chip.visible=false
 	_update_speed_buttons()
@@ -218,6 +233,7 @@ func select_object(id: String) -> void:
 	inspector.visible=true
 	inspector.position.x=34 if id in ["battery","grid","inverter","flex"] else 1480
 	super.select_object(id)
+	refresh_simulation_ui()
 
 func close_inspector() -> void:
 	super.close_inspector()
@@ -251,7 +267,11 @@ func refresh_guidance() -> void:
 		speech_tween.tween_property(assistant_message,"modulate:a",1.0,0.25)
 
 func skip_tutorial() -> void:
-	if guidance.active(): super.skip_tutorial()
+	if guidance.active():
+		super.skip_tutorial()
+		context_note="EV 01 needs 80% by 12:30. Click its task to compare ETA and departure. Space pauses while you plan."
+		message_target="ev_1"
+		refresh_guidance()
 	else:
 		companion.visible=false
 		opti_chip.visible=true
@@ -265,12 +285,17 @@ func _sync_readings() -> void:
 	for id in ["building","grid","inverter"]: objects[id].controls=[]
 	objects.solar.description="Weather and dust affect generation. Cleaning costs €2 and takes 15 minutes offline."
 	objects.solar.controls=["Clean"]
+	objects.solar.mode="Cleaning" if simulation.cleaning_end>elapsed_minutes else "Dirty" if simulation.dirty else "Clean"
 	objects.solar.values[3]=["Panels / weather",("Cleaning" if simulation.cleaning_end>elapsed_minutes else ("Dirty · 75%" if simulation.dirty else "Clean"))+" / "+("Clouds" if simulation.weather_factor(elapsed_minutes)<1 else "Clear")]
+	if simulation.ev_power_kw>0: objects.ev_1.values[4][1]=time_text(ceil(simulation.ev_completion_minute()))
 	objects.hvac.type="OFFICE CLIMATE"
 	objects.hvac.description="Eco saves power but allows heat buildup. Normal balances cooling; Boost cools faster. Aim for 20–25°C."
 	objects.hvac.mode=simulation.hvac_mode
-	objects.hvac.values=[["Inside / outside","%.1f / %.1f°C" % [simulation.inside_c,simulation.outside_c]],["Cooling power","%.1f kW" % simulation.hvac_kw],["Comfortable time","%.0f%%" % simulation.comfort_percent()],["Required comfort","95% of the office day"]]
-	objects.flex={"name":"Equipment wash","type":"FLEXIBLE OFFICE LOAD","code":"WASH","color":"#6d99ba","description":"Run a 6 kW equipment wash for 60 minutes between 11:00 and 15:00. You may pause and resume; progress is retained.","values":[["Runtime","%.0f / 60 min" % simulation.flex_minutes],["Power","%.1f kW" % simulation.flex_kw],["Deadline","15:00"],["State","Running" if simulation.flex_kw>0 else "Waiting / complete"]],"controls":["Run","Pause"],"mode":"Run" if simulation.flex_running else "Pause"}
+	objects.hvac.values=[["Inside / outside","%.1f / %.1f°C" % [simulation.inside_c,simulation.outside_c]],["Cooling / trend","%.1f kW · %+.1f°C / hour" % [simulation.hvac_kw,simulation.temperature_slope*60]],["Comfortable time","%.0f%% · goal 95%%" % simulation.comfort_percent()],["Comfort range","20–25°C"]]
+	var wash_state: String="Done · power stopped" if simulation.flex_minutes>=60-0.001 else "Deadline missed" if elapsed_minutes>=900 else "Opens at 11:00" if elapsed_minutes<660 else "Running" if simulation.flex_kw>0 else "Paused · progress saved" if simulation.flex_minutes>0 else "Ready to start"
+	objects.flex={"name":"Equipment wash","type":"FLEXIBLE OFFICE LOAD","code":"WASH","color":"#6d99ba","description":"Run a 6 kW equipment wash for 60 minutes between 11:00 and 15:00. You may pause and resume; progress is retained.","values":[["Runtime","%.0f / 60 min" % simulation.flex_minutes],["Power","%.1f kW" % simulation.flex_kw],["Latest restart",time_text(900-maxf(0,60-simulation.flex_minutes))],["State",wash_state]],"controls":["Run","Pause"],"mode":"Run" if simulation.flex_running else "Pause"}
+	if simulation.flex_minutes>=60-0.001: objects.flex.mode="Complete"
+	elif elapsed_minutes>=900: objects.flex.mode="Window closed"
 	for v in simulation.vehicles:
 		var soc: float=v.energy/v.capacity*100
 		var eta: float=elapsed_minutes+(v.capacity*v.target/100-v.energy)*60/maxf(v.power*0.9,0.0001)
@@ -278,16 +303,36 @@ func _sync_readings() -> void:
 		objects[v.id].type="EV CHARGING BAY"
 		objects[v.id].description="Choose its charge rate. Meet the target before departure; arrival and deadline are shown below."
 		objects[v.id].mode=v.mode
-		objects[v.id].values=[["Charge / target","%.1f%% / %.0f%%" % [soc,v.target]],["Power / maximum","%.1f / %.0f kW" % [v.power,v.maximum]],["Arrival / departure",time_text(v.arrival)+" / "+time_text(v.departure)],["State",state],["Target ETA",time_text(eta) if v.power>0 else ("Target reached" if soc>=v.target-0.001 else "No charging")],["Departure result","%.1f%% · %s" % [v.departure_soc,"Ready" if v.success else "Missed"] if v.departed else "Pending"]]
+		objects[v.id].values=[["Charge / target","%.1f%% / %.0f%%" % [soc,v.target]],["Power / maximum","%.1f / %.0f kW" % [v.power,v.maximum]],["Arrival / departure",time_text(v.arrival)+" / "+time_text(v.departure)],["State",state],["Target ETA",time_text(ceil(eta)) if v.power>0 else ("Target reached" if soc>=v.target-0.001 else "No charging")],["Departure result","%.1f%% · %s" % [v.departure_soc if v.success else floorf(v.departure_soc*10)/10,"Ready" if v.success else "Missed"] if v.departed else "Pending"]]
 
 func _control_note() -> String:
-	return "Choose a mode to see its power and effect on the grid."
+	match selected_id:
+		"solar": return "Solar offline until %s; cleaning is paid and in progress." % time_text(ceil(simulation.cleaning_end)) if simulation.cleaning_end>0 else "Dust reduces generation by 25%. Cleaning costs €2 and takes solar offline for 15 minutes." if simulation.dirty else "Panels are clean. No maintenance needed."
+		"battery":
+			if simulation.battery_soc()<0.1: return "Battery empty. Charge in a low-demand period to rebuild reserve."
+			if simulation.battery_soc()>99.9: return "Battery full. Charging stops automatically; Hold keeps the reserve."
+			return "Charge buys or stores 15 kW. Discharge supplies 15 kW, even if the surplus is exported for €0."
+		"flex": return "Wash complete; its power draw has stopped." if simulation.flex_minutes>=60-0.001 else "Latest restart: %s. Pausing keeps your progress." % time_text(900-(60-simulation.flex_minutes))
+		"hvac": return "Trend %+.1f°C/hour. Keep 20–25°C for 95%% of the day. Normal is a safe starting point." % (simulation.temperature_slope*60)
+	if selected_id.begins_with("ev_"):
+		var plan: Dictionary=ev_plan(selected_id)
+		if plan.departed: return "Departure result is final. Other services still earn points."
+		if plan.ready: return "Target reached. Charging stopped automatically; this car is ready to leave."
+		if not plan.connected: return "The selected rate applies on arrival. No power is used yet."
+		return "Compare ETA with departure. Fast uses 11 kW; Normal 7 kW; Low 3 kW."
+	return "Monitoring only. The grid supplies demand left after solar and storage."
 
 func show_object_panel() -> void:
+	action_feedback_until=-1
 	super.show_object_panel()
+	for value in inspector_values: value.get_parent().get_child(0).add_theme_font_size_override("font_size",15)
+	feedback.position.y=712
+	feedback.size.y=78
+	for item in all_labels(inspector):
+		if item.text=="CONTROL INTENT": item.text="CHOOSE A MODE"
 	if objects[selected_id].controls.is_empty():
 		for item in all_labels(inspector):
-			if item.text=="CONTROL INTENT": item.visible=false
+			if item.text=="CHOOSE A MODE": item.visible=false
 		selection_mode.visible=false
 		feedback.position.y=555
 		feedback.text="Monitoring only. The grid automatically supplies whatever solar and storage cannot cover."
@@ -305,7 +350,8 @@ func apply_control(mode: String) -> void:
 	refresh_simulation_ui()
 	_update_mode_buttons()
 	feedback.text=action_explanation(selected_id,mode,previous_grid) if accepted else "Unavailable now. Check arrival, completion or the task window."
-	if not guidance.active() and accepted:
+	action_feedback_until=elapsed_minutes+10
+	if not guidance.active() and accepted and (message_priority<3 or message_age>=6):
 		var key: String="action_"+selected_id+mode
 		if selected_id in ["solar","flex"] and not hints_seen.has(key):
 			context_note=feedback.text
@@ -320,7 +366,7 @@ func apply_control(mode: String) -> void:
 func action_explanation(id: String,mode: String,previous_grid: float) -> String:
 	var grid: String="Grid %+.1f → %+.1f kW (+ importing)." % [previous_grid,simulation.grid_kw]
 	if id=="battery": return mode+" · battery %+.1f kW. " % simulation.battery_power_kw+grid
-	if id=="hvac": return mode+" uses %.1f kW. " % simulation.hvac_kw+("Rooms may warm; watch 25°C." if mode=="Eco" else "Cooling protects comfort.")
+	if id=="hvac": return "%s · %.1f kW · %+.1f°C/hour. " % [mode,simulation.hvac_kw,simulation.temperature_slope*60]+("Watch 25°C. " if mode=="Eco" else "Comfort goal: 95%. ")+grid
 	if id=="flex": return ("Wash running at 6 kW. Finish 60 minutes by 15:00. " if simulation.flex_kw>0 else "Wash paused or complete; progress is saved. ")+grid
 	if id=="solar": return "Cleaning underway: €2, solar offline until "+time_text(simulation.cleaning_end)+". Then full output returns."
 	if id.begins_with("ev_"):
@@ -329,7 +375,7 @@ func action_explanation(id: String,mode: String,previous_grid: float) -> String:
 		if info.ready: return "Target reached. Charging has stopped."
 		if not info.connected: return "No car yet. This mode applies at arrival; there is no power draw now."
 		if info.power==0: return "Charging paused. The departure deadline still applies."
-		return "%s · %.1f kW · ETA %s, %s." % [mode,info.power,time_text(ceil(info.eta)),"on track" if info.eta<=info.deadline else "after departure—try faster"]
+		return "%s · %.1f kW · ETA %s, %s.\nGrid %+.1f → %+.1f kW." % [mode,info.power,time_text(ceil(info.eta)),"on track" if info.eta<=info.deadline else "too late",previous_grid,simulation.grid_kw]
 	return "Live readings; the grid balances site demand."
 
 func ev_plan(id: String) -> Dictionary:
@@ -339,6 +385,9 @@ func ev_plan(id: String) -> Dictionary:
 
 func _update_mode_buttons() -> void:
 	super._update_mode_buttons()
+	refresh_control_availability()
+
+func refresh_control_availability() -> void:
 	for mode in control_buttons:
 		var disabled:=false
 		if selected_id.begins_with("ev_"):
@@ -355,8 +404,8 @@ func refresh_simulation_ui() -> void:
 	var active:=0
 	for task in simulation.tasks:
 		if task.status=="active": active+=1
-	objective_label.text="Keep services ready.\n%d active · click a task or equipment" % active
-	clock_detail.text="%s · 1× = %.2f min/s" % ["Paused" if paused else "Running",pacing]
+	objective_label.text="Keep services ready.\n%d active · click a task to act" % active
+	clock_detail.text="Paused · take your time" if paused else "%d× · %.2f game min/s" % [speed,pacing*speed]
 	grid_title.text="GRID · IMPORTING" if simulation.grid_kw>=0 else "GRID · EXPORTING"
 	grid_label.add_theme_color_override("font_color",Color("#ad5143") if elapsed_minutes>=930 and elapsed_minutes<975 and simulation.grid_kw>18 else INK)
 	grid_detail.text="18 kW LIMIT · %.1f / 5 min over" % simulation.limit_excess_minutes if elapsed_minutes>=930 and elapsed_minutes<975 else "Peak %.1f kW · cost €%.2f" % [simulation.max_grid_import_kw,simulation.electricity_cost_eur]
@@ -367,24 +416,39 @@ func refresh_simulation_ui() -> void:
 			next=event
 			break
 	upcoming_label.text=time_text(next[0])+" · "+str(next[1]).replace("_"," ").capitalize() if not next.is_empty() else "18:00 · Results"
+	var forecasts: Array=[[660,"11:00 cheap power"],[690,"11:30 clouds"],[735,"12:15 solar returns"],[900,"15:00 higher price"],[930,"15:30 grid limit"],[975,"16:15 limit ends"],[1080,"18:00 results"]]
+	for forecast in forecasts:
+		if elapsed_minutes<forecast[0]:
+			forecast_label.text="Next · "+forecast[1]
+			break
 	ev_status_label.text="18 kW grid limit at 15:30" if elapsed_minutes<930 else "Comfort target: 95% of day"
 	task_toggle.text="All tasks (%d)" % simulation.tasks.size()
 	var ordered: Array=[]
 	for task in simulation.tasks:
 		if task.status=="active": ordered.append(task)
-	ordered.sort_custom(func(a,b): return a.deadline<b.deadline)
+	ordered.sort_custom(func(a,b):
+		var urgency_a: float=task_urgency(a)
+		var urgency_b: float=task_urgency(b)
+		return urgency_a<urgency_b if not is_equal_approx(urgency_a,urgency_b) else a.deadline<b.deadline)
 	ribbon_targets.clear()
 	for i in range(3):
 		var item: Button=ribbon_buttons[i]
 		if i<ordered.size():
 			var task: Dictionary=ordered[i]
-			item.text=task.title+" · "+time_text(task.deadline)+"\n"+task.progress
+			item.text=task.title+" · "+time_text(task.deadline)+"\n"+task_detail(task)
+			item.add_theme_color_override("font_color",Color("#ad5143") if task_at_risk(task) else INK)
+			item.add_theme_color_override("font_focus_color",Color("#ad5143") if task_at_risk(task) else INK)
+			item.add_theme_color_override("font_hover_color",Color("#ad5143") if task_at_risk(task) else GREEN)
 			item.tooltip_text=task.description+". Click for controls."
 			ribbon_targets.append(task.object)
 		else:
 			var tip: Dictionary=opportunity()
+			if i==2 and ordered.size()==1: tip={"title":"Climate · %.1f°C" % simulation.inside_c,"text":"%.0f%% comfortable · goal 95%%" % simulation.comfort_percent(),"object":"hvac"}
 			if i==2 and elapsed_minutes>=990: tip={"title":"Ready for the last hour?","text":"Click for 5× · comfort still matters","object":"__speed"}
 			item.text=tip.title+"\n"+tip.text
+			item.add_theme_color_override("font_color",GREEN)
+			item.add_theme_color_override("font_focus_color",INK)
+			item.add_theme_color_override("font_hover_color",GREEN)
 			item.tooltip_text="Planning opportunity · click to inspect"
 			ribbon_targets.append(tip.object)
 	for i in range(task_buttons.size()):
@@ -392,15 +456,58 @@ func refresh_simulation_ui() -> void:
 		item.visible=i<simulation.tasks.size()
 		if not item.visible: continue
 		var task: Dictionary=simulation.tasks[i]
-		item.text=("✓ " if task.status=="completed" else ("× " if task.status=="failed" else "• "))+task.title+" · "+time_text(task.deadline)+"\n"+task.progress
+		item.text=("✓ " if task.status=="completed" else ("× " if task.status=="failed" else "• "))+task.title+" · "+time_text(task.deadline)+"\n"+(task_detail(task) if task.status=="active" else task.progress)
 		item.tooltip_text=task.description+" · "+task.status.capitalize()
 		item.add_theme_color_override("font_color",Color("#ad5143") if task.status=="failed" else GREEN if task.status=="completed" else INK)
-		for connection in item.pressed.get_connections(): item.pressed.disconnect(connection.callable)
-		item.pressed.connect(select_object.bind(task.object))
+		if item.get_meta("target","")!=task.object:
+			for connection in item.pressed.get_connections(): item.pressed.disconnect(connection.callable)
+			item.pressed.connect(select_object.bind(task.object))
+			item.set_meta("target",task.object)
 		if known_status.get(task.id,"active")!=task.status and not task.id.begins_with("ev_"):
 			simulation.notices.append({"time":elapsed_minutes,"type":"resolved","object":task.object,"text":task_explanation(task)})
-			sound.cue("complete" if task.status=="completed" else "warning")
 		known_status[task.id]=task.status
+	if selected_id.begins_with("ev_") and inspector_values.size()>=5:
+		var plan: Dictionary=ev_plan(selected_id)
+		inspector_values[4].add_theme_color_override("font_color",Color("#ad5143") if not plan.ready and not plan.departed and plan.connected and (plan.power==0 or plan.eta>plan.deadline) else GREEN)
+		if plan.departed and not plan.ready: inspector_values[4].text="Departed below target"
+	elif selected_id=="hvac" and inspector_values.size()>=3:
+		inspector_values[0].add_theme_color_override("font_color",Color("#ad5143") if simulation.inside_c>24.5 else INK)
+	if selected_id!="" and is_instance_valid(feedback) and elapsed_minutes>=action_feedback_until: feedback.text=_control_note()
+	if selected_id!="" and is_instance_valid(selection_mode):
+		var current_mode: String="Setting: "+objects[selected_id].mode
+		if selection_mode.text!=current_mode: _update_mode_buttons()
+		else: refresh_control_availability()
+
+func task_urgency(task: Dictionary) -> float:
+	if task.id.begins_with("ev_"):
+		var plan: Dictionary=ev_plan(task.id)
+		if plan.ready: return 2000.0
+		if plan.connected and (plan.power==0 or plan.eta>plan.deadline): return -200.0+maxf(0,plan.deadline-elapsed_minutes)*0.1
+	if task.id=="grid" and elapsed_minutes>=930 and elapsed_minutes<975: return -300.0 if simulation.grid_kw>18 else -50.0
+	if task.id=="comfort": return -250.0 if simulation.inside_c>24.5 or simulation.comfort_percent()<95 else 1500.0
+	if task.id=="flex": return 1200.0 if simulation.flex_running else task.deadline-elapsed_minutes-(60-simulation.flex_minutes)
+	if task.id=="solar": return 1200.0 if simulation.cleaning_end>0 else task.deadline-elapsed_minutes-15
+	return task.deadline-elapsed_minutes
+
+func task_at_risk(task: Dictionary) -> bool:
+	if task.id.begins_with("ev_"):
+		var plan: Dictionary=ev_plan(task.id)
+		return plan.connected and not plan.ready and not plan.departed and (plan.power<=0 or plan.eta>plan.deadline)
+	if task.id=="grid": return simulation.grid_kw>18 or simulation.limit_excess_minutes>5
+	if task.id=="comfort": return simulation.inside_c>24.5 or simulation.comfort_percent()<95
+	if task.id=="flex": return elapsed_minutes+60-simulation.flex_minutes>900
+	if task.id=="solar": return (simulation.cleaning_end if simulation.cleaning_end>0 else elapsed_minutes+15)>900
+	return false
+
+func task_detail(task: Dictionary) -> String:
+	if task.id.begins_with("ev_"):
+		var plan: Dictionary=ev_plan(task.id)
+		if plan.ready: return "✓ Target reached · charging stopped"
+		if plan.power<=0: return task.progress+" · paused!"
+		return "%s · ETA %s%s" % [task.progress,time_text(ceil(plan.eta))," !" if plan.eta>plan.deadline else ""]
+	if task.id=="flex": return "%s · %s" % [task.progress,"running" if simulation.flex_running else "start by "+time_text(900-(60-simulation.flex_minutes))]
+	if task.id=="solar" and simulation.cleaning_end>0: return "Offline until "+time_text(ceil(simulation.cleaning_end))
+	return task.progress
 
 func opportunity() -> Dictionary:
 	if elapsed_minutes<630: return {"title":"Plan ahead · 11:30 clouds","text":"Battery reserve can bridge the dip","object":"battery"}
@@ -411,6 +518,9 @@ func opportunity() -> Dictionary:
 	return {"title":"Finish well · results at 18:00","text":"Use the battery, or choose 5× to finish","object":"battery"}
 
 func task_explanation(task: Dictionary) -> String:
+	if task.id.begins_with("ev_"):
+		var vehicle_name: String=task.id.replace("ev_","EV 0")
+		return vehicle_name+" left ready. "+task.progress+" at departure." if task.status=="completed" else vehicle_name+" left below target: "+task.progress+". Start faster charging earlier; other services still earn points."
 	if task.status=="completed":
 		return {"flex":"Wash finished—nice timing. It draws no more power now.","solar":"Panels are clean again. Full generation is back.","grid":"Grid challenge met. You kept overload within the five-minute grace budget.","comfort":"The office stayed comfortable. Good work."}.get(task.id,"Nice, "+task.title+". "+task.progress+" at departure.")
 	match task.id:
@@ -437,23 +547,58 @@ func advance_clock(delta: float) -> void:
 	comfort_warning=hot
 	if hint_cooldown<=0 and message_age>=12 and simulation.notices.is_empty(): offer_hint()
 	var urgent_index: int=-1
+	var next_priority := -1
 	for index in range(simulation.notices.size()):
-		if simulation.notices[index].type in ["arrival","surprise","dust","limit","warning","departure","resolved"]:
+		var priority: int=notice_priority(simulation.notices[index].type)
+		if priority>next_priority:
 			urgent_index=index
-			break
-	if not guidance.active() and not simulation.notices.is_empty() and (message_age>=5 or urgent_index>=0):
-		var note: Dictionary=simulation.notices.pop_at(urgent_index if urgent_index>=0 else 0)
+			next_priority=priority
+	# Give a displayed sentence time to be read. A warning can interrupt a tip,
+	# but simultaneous warnings never flicker past one another every frame.
+	if urgent_index>=0 and next_priority>=2 and speed>1: set_speed(1)
+	if not guidance.active() and urgent_index>=0 and (message_age>=6 or (next_priority>message_priority and message_age>=2)):
+		var note: Dictionary=simulation.notices.pop_at(urgent_index)
+		if not day_finished and note.type in ["hint","forecast","cloud","clear","tariff","arrival"] and elapsed_minutes-note.time>45:
+			return # An old tip should not describe weather or a price that has passed.
 		if note.type=="departure":
 			for task in simulation.tasks:
 				if task.id==note.object: note.text=task_explanation(task)
 		context_note=note.text
 		message_target=note.object
 		message_age=0
-		if note.type in ["arrival","surprise","dust","limit","warning"] and speed>1:
+		message_priority=next_priority
+		message_history.push_front({"time":note.time,"text":note.text})
+		if message_history.size()>8: message_history.pop_back()
+		if note.type in ["arrival","surprise","dust","limit","warning","cloud","tariff"] and speed>1:
 			set_speed(1) # Give players time to read and react at exhibition speed.
 		sound.cue("warning" if note.type in ["surprise","limit","dust","warning"] else "arrival" if note.type=="arrival" else "departure" if note.type=="departure" else "complete")
 		refresh_guidance()
 	if day_finished: show_results()
+
+func notice_priority(kind: String) -> int:
+	if kind in ["surprise","limit","warning"]: return 3
+	if kind in ["arrival","dust","cloud","tariff"]: return 2
+	if kind in ["departure","resolved","limit_end"]: return 1
+	return 0
+
+func show_notice_history() -> void:
+	if is_instance_valid(notes_overlay): return
+	var was_paused: bool=paused
+	paused=true
+	var overlay=Control.new()
+	notes_overlay=overlay
+	place(overlay,Rect2(0,0,1920,1080))
+	var shade=ColorRect.new()
+	shade.color=Color(0.12,0.22,0.25,0.45)
+	place(shade,Rect2(0,0,1920,1080),overlay)
+	var card=panel(Rect2(450,160,1020,760),PAPER,overlay)
+	label("Opti's recent notes · day paused",Rect2(30,20,960,55),32,INK,card)
+	var history_text:="No events yet. Click tasks to inspect their controls; Space pauses the day."
+	if not message_history.is_empty():
+		history_text=""
+		for note in message_history.slice(0,6): history_text+="%s · %s\n\n" % [time_text(note.time),note.text]
+	paragraph(history_text,Rect2(30,90,960,570),20,INK,card)
+	button("Back to the site",Rect2(30,680,960,55),func(): overlay.get_parent().remove_child(overlay); overlay.queue_free(); notes_overlay=null; paused=was_paused,card,true)
 
 func offer_hint() -> void:
 	var key:=""
@@ -466,26 +611,32 @@ func offer_hint() -> void:
 			text=id.replace("ev_","EV 0")+" isn't on track. Open it and compare its ETA with departure; a faster mode may help."
 			object=id
 			break
-	if key=="" and elapsed_minutes<930 and simulation.battery_mode=="Charge" and simulation.grid_kw>18:
+	if key=="" and not hints_seen.has("battery_buying") and elapsed_minutes<930 and simulation.battery_mode=="Charge" and simulation.grid_kw>18:
 		key="battery_buying"
 		text="Charging the battery is pushing our grid demand up. Hold would save that peak; keep some stored energy for 15:30."
-	elif key=="" and elapsed_minutes>=790 and elapsed_minutes<=835 and simulation.flex_minutes<60 and not simulation.flex_running:
+	elif key=="" and not hints_seen.has("wash_reminder") and elapsed_minutes>=790 and elapsed_minutes<=835 and simulation.flex_minutes<60 and not simulation.flex_running:
 		key="wash_reminder"
 		text="The wash still needs %.0f minutes. Start by %s to finish at 15:00; midday power is cheap now." % [60-simulation.flex_minutes,time_text(900-(60-simulation.flex_minutes))]
 		object="flex"
-	elif key=="" and elapsed_minutes>=840 and elapsed_minutes<=875 and simulation.dirty and simulation.cleaning_end<0:
+	elif key=="" and not hints_seen.has("dust_reminder") and elapsed_minutes>=840 and elapsed_minutes<=875 and simulation.dirty and simulation.cleaning_end<0:
 		key="dust_reminder"
 		text="Panels are still dirty. Cleaning takes 15 minutes; start by 14:45 to meet the task."
 		object="solar"
-	elif key=="" and elapsed_minutes>=990:
+	elif key=="" and not hints_seen.has("last_hour") and elapsed_minutes>=990:
 		key="last_hour"
 		text="All cars have left. Keep rooms comfortable and use the battery to lower the bill—or choose 5× in the ribbon to finish."
-	elif key=="" and simulation.grid_kw< -2 and simulation.battery_soc()<90:
+	elif key=="" and not hints_seen.has("battery_export") and simulation.battery_mode=="Discharge" and simulation.grid_kw< -2:
+		key="battery_export"
+		text="Stored energy is leaving the site for no payment. Hold keeps that reserve for later demand."
+	elif key=="" and not hints_seen.has("battery_low") and simulation.battery_soc()<10 and elapsed_minutes<930:
+		key="battery_low"
+		text="Our battery is nearly empty. The 15:30 grid limit is still ahead; look for a low-demand window to recharge."
+	elif key=="" and not hints_seen.has("solar_export") and simulation.battery_mode!="Discharge" and simulation.grid_kw< -2 and simulation.battery_soc()<90:
 		key="solar_export"
 		text="We're exporting surplus solar. You could store some in the battery; check the grid after choosing Charge."
-	elif key=="" and elapsed_minutes>=550 and elapsed_minutes<630:
+	elif key=="" and not hints_seen.has("early_plan") and elapsed_minutes>=550 and elapsed_minutes<630:
 		key="early_plan"
-		text="EV 01 is charging normally. Open it to see its ETA. The battery is our reserve for clouds later; it doesn't need to charge immediately."
+		text="EV 01 is set to %s. Check its ETA against departure; faster charging costs power now but frees capacity later." % simulation.ev_mode
 		object="ev_1"
 	if key!="" and not hints_seen.has(key):
 		hints_seen[key]=true
@@ -504,22 +655,26 @@ func show_results() -> void:
 	clear_screen("results")
 	brand()
 	sound.cue("results")
-	label("Your office day, complete.",Rect2(100,125,1600,80),48)
+	label("Every service ready. Nicely managed." if results_values.ev_met==3 and results_values.comfort>=95 and results_values.flex and results_values.grid else "Day complete. Every decision counted.",Rect2(100,125,1700,80),45)
 	label("%s · %d / 1000 points · Local rank #%d (%s)" % [player_name,results_values.score,rank,mode_name],Rect2(105,213,1700,55),29,GREEN)
-	label("Same scenario, three real simulated runs · OptiMesh demo is an offline reference strategy",Rect2(105,278,1700,40),22,MUTED)
+	label("Same day, real simulations · Normal uses fixed settings; OptiMesh demo coordinates them.",Rect2(105,278,1700,40),22,MUTED)
 	var columns: Array=["Normal","Player","OptiMesh demo"]
 	for i in range(3):
 		var r: Dictionary=compared[columns[i]]
 		var card=panel(Rect2(100+i*580,340,540,475),Color("#dae9e0") if i==1 else PAPER)
 		label(columns[i],Rect2(28,20,484,50),30,GREEN,card)
-		label("€%.2f" % r.cost,Rect2(28,83,484,70),52,INK,card)
-		label("Total energy + maintenance cost",Rect2(28,151,484,30),17,MUTED,card)
+		label("%d / 3 vehicles ready" % r.ev_met,Rect2(28,82,484,43),29,GREEN if r.ev_met==3 else Color("#ad5143"),card)
+		label("Comfort %.0f%% · goal 95%%" % r.comfort,Rect2(28,131,484,35),23,GREEN if r.comfort>=95 else Color("#ad5143"),card)
+		label("Wash %s  ·  Grid %s" % ["done" if r.flex else "missed","met" if r.grid else "missed"],Rect2(28,177,484,35),23,GREEN if r.flex and r.grid else Color("#ad5143"),card)
+		label("€%.2f" % r.cost,Rect2(28,230,240,60),44,INK,card)
+		label("Energy + maintenance",Rect2(28,289,484,27),17,MUTED,card)
 		var bar=ColorRect.new()
 		bar.color=GREEN if i==1 else Color("#91b7ab")
-		place(bar,Rect2(28,195,clampf(r.cost/45.0,0,1)*460,9),card)
-		paragraph("EVs ready  %d / 3     Comfort  %.0f%%\nGrid import  %.1f kWh     Peak  %.1f kW\nExport  %.1f kWh     Solar used*  %.0f%%\nWash  %s     Grid limit  %s\nBattery  %.0f%%     Cycling  %.2f" % [r.ev_met,r.comfort,r.import,r.peak,r.export,r.utilization,"Done" if r.flex else "Missed","Met" if r.grid else "Exceeded",r.battery_soc,r.cycles],Rect2(28,230,484,217),23,INK,card)
-	paragraph(results_advice(),Rect2(105,833,1700,75),22,MUTED)
-	label("*Solar used = generation minus export; stored energy is not traced.",Rect2(105,910,1280,30),17,MUTED)
+		place(bar,Rect2(28,327,clampf(r.cost/maxf(compared.Normal.cost,maxf(compared.Player.cost,compared["OptiMesh demo"].cost)),0,1)*460,9),card)
+		paragraph("Peak %.1f kW · import %.1f kWh\nExport %.1f kWh · solar used* %.0f%%\nBattery %.0f%% left · cycles %.2f" % [r.peak,r.import,r.export,r.utilization,r.battery_soc,r.cycles],Rect2(28,352,484,105),20,MUTED,card)
+	paragraph(results_advice(),Rect2(105,825,1700,66),21,INK)
+	label("About %d base points × %.0f%% service factor → %d. Every recovered service earns points." % [results_values.base_score,results_values.service_factor*100,results_values.score],Rect2(105,891,1340,30),18,GREEN)
+	label("*Solar used excludes export. Offline demo controller; not the production optimizer.",Rect2(105,925,1330,25),16,MUTED)
 	button("How scoring works",Rect2(1470,903,330,45),show_score_help)
 	if store.last_error!="": label(store.last_error,Rect2(105,875,1700,30),18,Color("#ad5143"))
 	button("Play Again  →",Rect2(100,966,520,60),start_demo,null,true)
@@ -536,7 +691,7 @@ func results_advice() -> String:
 		var missed: Array=[]
 		for task in r.tasks:
 			if task.id.begins_with("ev_") and task.status=="failed": missed.append(task.title+": "+task.progress)
-		return cost_note+"Departure targets missed: "+", ".join(missed)+". Compare ETA with departure, especially EV 03's revised 15:45."
+		return cost_note+"Missed: "+", ".join(missed)+". Compare ETA with departure; EV 03 moves to 16:00. Keep recovering other services for more points."
 	if not r.flex: return cost_note+"The wash stopped at %.0f / 60 minutes. Run it by 14:00 to finish before 15:00; midday electricity is cheaper." % simulation.flex_minutes
 	if not r.grid: return cost_note+"Grid overload lasted %.1f minutes (budget 5). Save battery charge for 15:30 and slow charging when the warning appears." % r.overload_minutes
 	for task in r.tasks:
@@ -551,14 +706,14 @@ func show_score_help() -> void:
 	place(shade,Rect2(0,0,1920,1080),overlay)
 	var card=panel(Rect2(490,220,940,640),PAPER,overlay)
 	label("Balanced service, then efficiency",Rect2(40,30,860,60),36,INK,card)
-	paragraph("Up to 1000 points: EVs 450 · comfort 150 · wash 100 · grid 70 · cleaning 30 · cost 80 · peak 50 · solar use 50 · battery cycling 20.\n\nMissing EVs caps the score at 400 + 50 per ready EV. Comfort below 80% caps it at 400; below 95% at 700. An unfinished wash caps it at 650. The lowest cap applies.\n\nCost and peak points fall as bill approaches €45 or peak approaches 60 kW. Solar points follow utilization; cycling points decline over three cycles. Grid allows five minutes over 18 kW.\n\nSame schedule/weather for all comparisons. Reference is a demo heuristic. Local ranking uses scoring rules 2.",Rect2(40,120,860,400),20,INK,card)
+	paragraph("Base points: EVs 450 · comfort 150 · wash 100 · grid 70 · cleaning 30 · cost 80 · peak 50 · solar use 50 · battery cycling 20.\n\nService factor: with 0 / 1 / 2 ready EVs, keep 40 / 45 / 50% of base points. Comfort below 80% keeps 40%; below 95% keeps 70%. An unfinished wash keeps 65%. Use the lowest factor, once. Recovering other services still earns points.\n\nCost and peak points fall as bill approaches €45 or peak approaches 60 kW. Solar points follow utilization; cycling points decline over three cycles. Grid allows five minutes over 18 kW.\n\nSame schedule/weather for all runs. The offline reference is a demo heuristic, not the production optimizer. Local ranking uses scoring rules 3.",Rect2(40,110,860,425),20,INK,card)
 	button("Got it",Rect2(40,550,860,60),func(): overlay.get_parent().remove_child(overlay); overlay.queue_free(),card,true)
 
 func show_leaderboard() -> void:
 	clear_screen("leaderboard")
 	brand()
 	label("Local leaderboard",Rect2(170,150,1500,80),48)
-	label("Top runs on this laptop · scoring rules 2 · same scenario for Demo and Normal",Rect2(175,245,1500,45),23,MUTED)
+	label("Top runs on this laptop · scoring rules 3 · same scenario for Demo and Normal",Rect2(175,245,1500,45),23,MUTED)
 	var ranked: Array=store.current_entries()
 	for i in range(mini(10,ranked.size())):
 		var entry: Dictionary=ranked[i]
@@ -581,13 +736,17 @@ func show_settings() -> void:
 	label("Audio and display",Rect2(40,30,660,60),38,INK,card)
 	for i in range(2):
 		var key: String=["music","effects"][i]
-		label(key.capitalize()+" volume",Rect2(40,120+i*100,660,40),24,INK,card)
+		var volume_label=label(key.capitalize()+" · %.0f%%" % (store.data[key]*100),Rect2(40,120+i*100,430,40),24,INK,card)
 		var slider=HSlider.new()
 		slider.max_value=1
 		slider.step=0.01
 		slider.value=store.data[key]
 		place(slider,Rect2(40,167+i*100,660,35),card)
-		slider.value_changed.connect(func(value): store.data[key]=value; sound.apply_settings())
+		slider.value_changed.connect(func(value): store.data[key]=value; volume_label.text=key.capitalize()+" · %.0f%%" % (value*100); sound.apply_settings())
+		slider.drag_ended.connect(func(changed):
+			if changed and key=="effects": sound.cue("complete")
+		)
+	small_button("Test sound",Rect2(505,220,190,40),func(): sound.cue("complete"),card)
 	var mute=CheckButton.new()
 	mute.text="Mute all audio"
 	mute.button_pressed=store.data.mute
@@ -612,5 +771,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		dialog.canceled.connect(dialog.queue_free)
 		dialog.popup_centered(Vector2i(600,180))
 		return
-	if is_instance_valid(settings_overlay): return
+	if is_instance_valid(settings_overlay) or is_instance_valid(notes_overlay): return
 	super._unhandled_key_input(event)
+
+func _input(event: InputEvent) -> void:
+	# Space must pause even after a mode button has keyboard focus; otherwise
+	# Godot activates that button before _unhandled_key_input can see the key.
+	if screen=="game" and not is_instance_valid(settings_overlay) and not is_instance_valid(notes_overlay) and event is InputEventKey and event.pressed and not event.echo and event.keycode in [KEY_SPACE,KEY_1,KEY_2,KEY_3]:
+		_unhandled_key_input(event)

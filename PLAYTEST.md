@@ -1,5 +1,7 @@
 # Developer playtest review — October 2026
 
+**Historical report from before baseline `62a2bfa`.** Counts, timings, scores and fixes below describe that earlier pass, not the current build. The current refinement and fresh evidence are in **POLISH_REVIEW.md** and **VALIDATION.md**; current rules are in **SCENARIO.md**. In particular, rule-2 hard caps below have been replaced by rule-3 service factors, and EV 03 now leaves at 16:00.
+
 The goal was first-time comprehension and a site-focused exhibition game, without adding management systems. Review used the actual rendered main scene, controls, complete scenario, audio enabled, nine screenshots per strategy and message/result journals. Strategies execute in one-minute decision steps faster than wall-clock exhibition pace; this is developer input automation and visual review, not a claim of a human usability or listening study.
 
 ## Iteration log

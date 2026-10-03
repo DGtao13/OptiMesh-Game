@@ -42,20 +42,37 @@ func arrow(a: Vector2,b: Vector2,power: float,color: Color) -> void:
 	draw_line(p,p-direction.rotated(0.6)*10,color,2,true)
 	draw_line(p,p-direction.rotated(-0.6)*10,color,2,true)
 
+func status_badge(point: Vector2, text: String, color: Color, width: float=94) -> void:
+	draw_style_box(get_parent().style(Color("#f8faf6"),5),Rect2(point,Vector2(width,25)))
+	draw_string(ThemeDB.fallback_font,point+Vector2(6,18),text,HORIZONTAL_ALIGNMENT_LEFT,-1,15,color)
+
 func _draw() -> void:
 	if model==null: return
 	var t: float=model.time_minutes
 	var midday:=1.0-absf(t-780)/300
 	draw_style_box(get_parent().style(Color(0.12,0.22,0.35,0.10*(1-clampf(midday,0,1))),28),Rect2(10,0,1360,610))
+	if model.weather_factor(t)<1:
+		draw_colored_polygon(get_parent().quad(345,65,355,110,35),Color(0.25,0.32,0.42,0.32))
 	if model.dirty:
 		for i in range(18): draw_circle(Vector2(370+i%6*60,80+i/6*34),4,Color(0.67,0.5,0.25,0.7))
 	if model.cleaning_end>t:
 		draw_rect(Rect2(360,80,380,100),Color(0.8,0.95,1,0.25))
-		draw_string(ThemeDB.fallback_font,Vector2(400,125),"CLEANING · 15 MIN",HORIZONTAL_ALIGNMENT_LEFT,-1,20,Color("#248c77"))
+		draw_string(ThemeDB.fallback_font,Vector2(390,125),"CLEANING · %d MIN LEFT" % ceili(model.cleaning_end-t),HORIZONTAL_ALIGNMENT_LEFT,-1,18,Color("#174e43"))
 	draw_vehicle(Vector2(136.5,409),model.config.get("ev_arrival_minute",480),model.config.ev_departure_minute,Color("#f1f3e7"))
 	for i in range(model.vehicles.size()):
 		var v: Dictionary=model.vehicles[i]
 		draw_vehicle(Vector2(241.5+i*105,409),v.arrival,v.departure,[Color("#75a8bc"),Color("#ddc280")][i])
+	for i in range(3):
+		var connected: bool=not model.ev_departed if i==0 else t>=model.vehicles[i-1].arrival and not model.vehicles[i-1].departed
+		var ready: bool=model.ev_target_reached if i==0 else model.vehicles[i-1].energy>=model.vehicles[i-1].capacity*model.vehicles[i-1].target/100-0.001
+		var power: float=model.ev_power_kw if i==0 else model.vehicles[i-1].power
+		var remaining: float=model.ev_target_energy()-model.ev_energy_kwh if i==0 else model.vehicles[i-1].capacity*model.vehicles[i-1].target/100-model.vehicles[i-1].energy
+		var deadline: float=model.config.ev_departure_minute if i==0 else model.vehicles[i-1].departure
+		var risk: bool=connected and not ready and (power<=0 or remaining*60/maxf(power*0.9,0.0001)>deadline-t)
+		var caption: String="Empty" if not connected else "Ready ✓" if ready else "%.0f kW%s" % [power," !" if risk else ""]
+		status_badge(Vector2(90+i*105,480),caption,Color("#ad5143") if risk else Color("#248c77") if connected else Color("#6b8185"))
+	status_badge(Vector2(1090,463),"%s %.0f%%" % [model.battery_mode,model.battery_soc()],Color("#248c77"),145)
+	if model.flex_kw>0: draw_circle(Vector2(978,286),4+sin(phase*3),Color("#248c77"))
 	for i in range(6):
 		draw_vehicle(Vector2(484.5+i*87,409),490+i*11,980+i*12,Color("#9fbabb") if i%2==0 else Color("#d8b393"))
 	var hub:=Vector2(1020,305)
@@ -71,7 +88,7 @@ func _draw() -> void:
 	if t<1020:
 		for i in range(4):
 			var p:=fmod(t/14.0+i*0.23,1.0)
-			var point:=Vector2(410+i*105,465).lerp(Vector2(620+i*20,305),p)
+			var point:=Vector2(410+i*105,465).lerp(Vector2(620+i*20,305),p if t<900 else 1-p)
 			draw_line(point+Vector2(-3,10),point+Vector2(sin(phase*4+i)*4,19),Color("#526f78"),3,true)
 			draw_circle(point,5,Color("#d8b393"))
 			draw_line(point+Vector2(0,5),point+Vector2(0,12),Color("#6d99ba"),6,true)

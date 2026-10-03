@@ -35,7 +35,7 @@ func run() -> void:
 	sim.advance(15)
 	check(sim.cleaned and not sim.dirty and sim.solar_generated_kwh==energy,"Timed cleaning recovery")
 	sim.advance(75)
-	check(sim.vehicle("ev_3").departure==945,"Unexpected deadline change")
+	check(sim.vehicle("ev_3").departure==960,"Unexpected deadline change allows a fair reaction window")
 	sim.advance(210)
 	check(sim.day_finished and sim.events_seen==Model.Scenario.EVENTS.size(),"All events and day end")
 	for v in sim.vehicles: check(v.departed and v.power==0,"EV departure stops charging")

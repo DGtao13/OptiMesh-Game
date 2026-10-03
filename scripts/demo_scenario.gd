@@ -14,10 +14,10 @@ const EVENTS = [
 	[750.0,"departure","EV 01 leaves now. Its task records the actual departure charge.","ev_1"],
 	[780.0,"dust","Dust has reduced solar by 25%. Cleaning costs €2 and takes 15 minutes offline.","solar"],
 	[810.0,"arrival","Visitor EV 03 arrived. It needs 75% before 16:45. Check its target ETA.","ev_3"],
-	[870.0,"surprise","Change of plan: EV 03 must leave at 15:45. Its task deadline has moved forward.","ev_3"],
-	[900.0,"tariff","Power now costs €0.32/kWh. A 18 kW grid limit begins at 15:30 for 45 minutes.","grid"],
+	[870.0,"surprise","Change of plan: EV 03 now leaves at 16:00. Compare its ETA with departure; faster charging may be needed.","ev_3"],
+	[900.0,"tariff","Power now costs €0.32/kWh. An 18 kW grid limit begins at 15:30 for 45 minutes. Keep battery reserve for it.","grid"],
 	[930.0,"limit","Grid challenge active: stay below 18 kW until 16:15. Coordinate battery, chargers and cooling.","grid"],
-	[945.0,"departure","EV 03 leaves on its revised schedule. See its task for the result.","ev_3"],
+	[960.0,"departure","EV 03 leaves on its revised schedule. See its task for the result.","ev_3"],
 	[975.0,"limit_end","Grid challenge ended. Its result measures every minute above the limit.","grid"],
 	[990.0,"departure","EV 02 leaves now. Keep the office comfortable until closing.","ev_2"],
 	[1020.0,"tariff","Final hour: power is €0.24/kWh. Review remaining tasks and battery charge.","battery"]

@@ -63,6 +63,9 @@ func cue(kind: String) -> void:
 
 func _exit_tree() -> void:
 	if is_instance_valid(music):
+		# A muted/paused stream must be resumed before stop so the audio server
+		# can retire its playback buffer during shutdown.
+		music.stream_paused=false
 		music.stop()
 		music.stream=null
 	if is_instance_valid(effects):

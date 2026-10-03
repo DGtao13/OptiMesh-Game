@@ -1,6 +1,6 @@
 extends RefCounted
 const PATH = "user://exhibition_v1.json"
-const SCORE_RULES = 2
+const SCORE_RULES = 3
 var data := {"version":1,"entries":[],"music":0.22,"effects":0.35,"mute":false,"ambient":true}
 var last_error := ""
 

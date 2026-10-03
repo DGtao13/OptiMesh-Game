@@ -14,10 +14,10 @@ Opti introduces the site, EV charging, battery and tariff planning. The clock wa
 
 - Click a **task in the deadline ribbon** to open its controls; hover for its description. **All tasks** opens history, including completed/missed tasks. Selecting equipment closes the drawer.
 - Click equipment or its map label for a contextual inspector. All three EVs, climate, battery, solar cleaning and the equipment wash affect real simulation state. The wash has its own map object and label. Close the inspector with × or Esc to see the whole site.
-- Opti's current tip offers **Open [equipment]**. Got it acknowledges only that tip. Quiet tips collapse after 18 seconds; the small Opti chip brings the message back. New events reopen it.
+- Opti's current tip offers **Open [equipment]**. Got it acknowledges only that tip. Quiet tips collapse after 18 seconds; the small Opti chip brings the message back. New events reopen it. **Recent notes** pauses the day to reread the last six delivered events; closing it restores the previous pause state.
 - Meet EV departure targets, keep rooms comfortable, complete the wash/cleaning and manage the temporary grid limit. Lower cost/peak helps, but cannot compensate for abandoned services.
 - Pause/resume; choose 1× / 5× / 15×. Space toggles pause, 1/2/3 set speed, Esc closes the inspector (or skips the intro), F11 toggles fullscreen.
-- Settings provides music/effects volume, mute and reduced ambient visuals. These persist locally.
+- Settings provides music/effects percentages, a **Test sound** preview, mute and reduced ambient visuals. These persist locally.
 - Reset Day restarts the scenario and onboarding. At 18:00 see actual Normal / Player / OptiMesh demo results, score, rank and missed requirements. Play Again resets the full run; Main Menu retains the name.
 
 The leaderboard is local to this laptop, holds the top 50 runs and shows the top ten. Administrator reset: on that screen press **Ctrl+Shift+Delete**, then confirm. No network synchronization is implemented.
@@ -34,7 +34,7 @@ The leaderboard is local to this laptop, holds the top 50 runs and shows the top
 | Vector world / activity / companion | `scripts/site_map.gd`, `scripts/site_activity.gd`, `scripts/opti_face.gd` |
 | Preserved foundation | `scripts/energy_simulation.gd`, `scripts/main.gd`, `scripts/site_catalog.gd`, `scripts/demo_guidance.gd` |
 | Preserved regression scene | `scenes/legacy_regression.tscn` |
-| Tests | `tests/energy_simulation_test.gd`, `tests/prototype_test.gd`, `tests/demo_loop_test.gd`, `tests/management_test.gd`, `tests/exhibition_test.gd`, `tests/playstyle_test.gd` |
+| Tests | `tests/energy_simulation_test.gd`, `tests/prototype_test.gd`, `tests/demo_loop_test.gd`, `tests/management_test.gd`, `tests/exhibition_test.gd`, `tests/playstyle_test.gd`, `tests/polish_test.gd` |
 
 The new playable scene extends the previous UI and deterministic core. The legacy scene preserves every old assertion against its original scenario, including independent integration expectations. New model and real-scene suites cover the expanded exhibition game. `.gd.uid` files are stable script IDs.
 
@@ -51,4 +51,4 @@ Compatibility renderer, 1920×1080 logical canvas with uniform scaling/letterbox
 ./Test-Prototype.ps1 -Capture -Resolution 1280x720
 ```
 
-Each run executes all six suites. Captures go to ignored `artifacts/`. Exhibition tests isolate their leaderboard/preferences from real players and exercise a full reactive plan, failed unattended runs, UI containment, retry/menu, sound settings and repeated sessions. The playstyle suite executes six different complete Demo strategies with audio enabled and records a message/results journal plus nine rendered moments per strategy. See **PLAYTEST.md** for qualitative observations and iteration history. Real exhibition-laptop scaling, frame rate, speaker volume and first-time human comprehension still need an on-device playtest.
+Each run executes all seven suites. Captures go to ignored `artifacts/`. Exhibition tests isolate their leaderboard/preferences from real players and exercise a full reactive plan, failed unattended runs, UI containment, retry/menu, sound settings and repeated sessions. The playstyle suite executes ten complete Demo strategies plus the strong strategy in Normal Mode, with audio enabled, a message/results journal and nine rendered moments per strategy. See **POLISH_REVIEW.md** for the current pass's direct desktop sessions, issue log and outcomes; **PLAYTEST.md** preserves the earlier pass as historical context. Real exhibition-laptop scaling, sustained frame rate, speaker volume and first-time human comprehension still need an on-device playtest.

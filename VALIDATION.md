@@ -1,37 +1,39 @@
-# Validation — exhibition playtest pass
+# Validation — refinement from 62a2bfa
 
-October 2026, starting from `3d6453c`. See PLAYTEST.md for the qualitative issue log and strategy outcomes; passing assertions alone are not the usability conclusion.
+Fresh final validation on 2026-10-03. Qualitative issues, direct play and outcomes are in POLISH_REVIEW.md. PLAYTEST.md is an explicitly marked historical report.
 
-| Suite | Headless | Rendered, each target size |
-| --- | ---: | ---: |
-| Original energy model | 258, zero failures | 258, zero failures |
-| Preserved prototype | 557, zero failures | 578, zero failures |
-| Preserved guided demo | 171, zero failures | 180, zero failures |
-| Extended management model | 131, zero failures | 131, zero failures |
-| Actual exhibition scene/UI | 898, zero failures | 914, zero failures |
-| Six playstyles | 15, zero failures | 69, zero failures |
+## Final full regression
 
-Final full rendered suites ran at **1920×1080**, **1366×768**, and **1280×720**. Visual inspection caught a score-help line touching the button and a focused task using white text on a pale card. Typography/focus contrast were adjusted and the affected exhibition UI suite repeated at every target size. Godot editor import/script load and Git whitespace checks passed. Final normal-Windows runs produced no script/runtime or resource-leak errors. Sandbox-only certificate-store warnings were eliminated by using normal Windows access for final validation.
+`./Test-Prototype.ps1` with AppData redirected into ignored `.tools/profile` ran all seven suites successfully: **2263 checks, zero failures**.
 
-## Coverage
+| Suite | Final headless checks |
+|---|---:|
+| Original energy model | 258 |
+| Preserved prototype | 557 |
+| Preserved guided demo | 171 |
+| Extended management model | 131 |
+| Exhibition scene/UI | 1077 |
+| Eleven strategy runs | 29 |
+| New polish regressions | 40 |
 
-The original energy core and its independent tests are unchanged. `legacy_regression.tscn` preserves the original UI/scenario expectations. New checks cover service score caps, three/six-minute grid recovery outcomes, score-rule ranking separation, task drawer, actual task/map picks including wash, monitoring-only controls, numeric battery consequences, acknowledging/reopening Opti without losing queued notices, and live clock/animation sampling.
+Final full-suite output is `artifacts/final_regression.log`. No script/runtime or ObjectDB leak warnings occurred in that run. Earlier sandbox certificate warnings were environmental; earlier paused-audio playback leaks were reproduced and fixed.
 
-Existing coverage retains EV arrivals/departures/targets, comfort/power tradeoffs, wash/pause/window, weather/cleaning/paid downtime, revised deadline, exact energy balances, timestep partition invariance, deterministic reference comparisons, bounded persistence, name/menu/settings/mute/reset and vehicle paths. Each exhibition invocation also completes twelve consecutive stress sessions with bounded screen/audio nodes. Strategy tests route decisions through actual selection/control handlers and calculate real model results.
+## Rendered validation
 
-## Rendered review and performance
+Actual exhibition UI suite: **1097 checks, zero failures at each of 1920×1080, 1366×768 and 1280×720**. Logs: `layout_final_1920.log`, `layout_final_1366.log`, `final_1280.log`. All live samples reported 60.5 FPS over three seconds on RX 5700 XT at the 60 FPS cap. Two root nodes/two audio players remained bounded; activity drawing adds no actor nodes. This does not establish sustained low-power laptop performance.
 
-**36 complete rendered Demo strategy runs** across before/layout/refinement/final rounds. Six personas: naive, EV-first, cost-focused, chaotic, passive, strong. Nine captured moments per strategy include clouds, dust, revised departure, grid challenge, final hour and results. Automated strategies run faster than wall-clock Demo, with audio output enabled. Separate UI captures cover intro, drawer, inspectors, scoring explanation, leaderboard and settings at all three sizes.
+31 complete accelerated rendered strategy replays: ten Demo strategies at 1280×720 (116 checks), ten at 1366×768 (116), and ten plus Normal-Strong at 1920×1080 (128); all zero failures. Three separate complete desktop-interacted days are recorded in POLISH_REVIEW.md. Regression/reference/stress cycles are excluded from those counts. The first two render batches preceded the last minor control/rounding/shutdown fixes; the final full regression and affected UI reruns validate those fixes.
 
-Visual review checked map dominance, label separation, contextual panels, tasks, current Opti text, success/failure coaching, score help and ranking. The final score-help screenshot has a clear gap above its button. No unresolved clipping was observed in reviewed final frames. The map takes approximately 67% of logical screen area, compared with 20% before; overlays open only as needed. Inspectors move to the opposite side for right-side equipment.
+Reviewed captures cover menu/name/modes, onboarding, quiet site, task drawer, inspectors, cloud/cleaning/visitor/grid events, recent notes, results/scoring, ranking and settings. Captures and journals remain in ignored `artifacts/`. No unresolved clipping was observed in reviewed final frames.
 
-Compatibility renderer, AMD Radeon RX 5700 XT / OpenGL 3.3. A three-second live clock/animation sample at each target size reported **about 60 FPS** (60.5 including the initial sampled frame) at the configured cap. Root nodes remain two, audio players two, and the drawn activity layer adds no actor nodes. This is a short desktop observation, not sustained low-power laptop benchmarking. Static site caching and 20 Hz activity remain; no additional heavy rendering system was introduced.
+## Coverage and reliability
 
-All tests redirect AppData into ignored `.tools/profile`, use separate local-store files, and write captures/journals into ignored `artifacts/`. Production player records are not test data. New scoring rules preserve previous entries within the bounded store while excluding incompatible scores from the current leaderboard.
+Preserved independent energy/UI tests retain existing expectations. Extended coverage checks timestep partition invariance, all actual comparison policies, service factors/ranking separation, recoverable late EV decisions, near-miss charge display, focused-button transport keys, notice priority/dwell, history pause/reset, task risk ordering, ETA consistency, control grid effects, expired feedback, automatic mode/control changes, sound preview and later hint delivery.
 
-## Necessary manual checks
+Each exhibition test completes twelve consecutive stress sessions and retry/menu/name/settings/ranking flows; polish tests add six resets. Screen/audio counts remain bounded, message history resets, and one completed player run creates one ranking entry. Isolated test stores prevent production leaderboard contamination.
 
-- One real first-time visitor: complete an eight-minute Demo without coaching; assess tutorial comprehension, response time, last-hour engagement and subjective fun.
-- Exhibition laptop: Windows scaling/fullscreen, sustained performance and perceived speaker volume/cue distinction/music repetition. Actual playback was enabled, but tools do not provide physical speaker listening.
+Reproduce headless validation with `./Test-Prototype.ps1`. For complete rendered coverage use `./Test-Prototype.ps1 -Capture -Resolution 1920x1080` (or 1366x768 / 1280x720). Godot 4.5+ is required. Current targeted rendered runs use `--script tests/exhibition_test.gd --resolution <size> -- --capture`; the strategy capture batch uses `--script tests/playstyle_test.gd --resolution <size> -- --capture --round=<name>`.
 
-No known functional blocker remains from developer render/regression review. The simplified thermal model, solar-use proxy and offline reference controller remain illustrative; exact assumptions are in SCENARIO.md. No new major systems or networking were added.
+## Practical limits
+
+A real first-time visitor without coaching, sustained exhibition-laptop performance/scaling/fullscreen, and perceived speaker loudness/music repetition remain hardware/usability checks. Actual audio output/control routing was exercised, but subjective listening was not verified. The scenario, thermal model, solar-use proxy and reference remain illustrative and deterministic. Passing assertions alone are not evidence of fun.
