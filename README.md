@@ -3,7 +3,7 @@
 **Run an office. Balance its energy. See what coordinated management changes.**
 
 [![Godot 4.5+](https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org/)
-[![Windows exhibition demo](https://img.shields.io/badge/Windows-v0.1.0--demo-258F7B?logo=windows&logoColor=white)](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.0-demo)
+[![Windows exhibition demo](https://img.shields.io/badge/Windows-v0.1.1--demo-258F7B?logo=windows&logoColor=white)](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.1-demo)
 [![Main OptiMesh platform](https://img.shields.io/badge/OptiMesh-main%20platform-344E56)](https://github.com/Praz40/OptiMesh)
 
 ![OptiMesh gameplay: solar, EV charging, office climate, battery and the Opti companion](docs/images/gameplay.png)
@@ -22,9 +22,9 @@ OptiMesh Game is the standalone interactive energy-management game and exhibitio
 
 **For players and exhibition laptops**
 
-[**Download the Windows x86_64 demo ZIP**](https://github.com/DGtao13/OptiMesh-Game/releases/download/v0.1.0-demo/OptiMesh-Game-v0.1.0-demo-windows-x86_64.zip) · [Release notes](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.0-demo)
+[**Download the Windows x86_64 demo ZIP**](https://github.com/DGtao13/OptiMesh-Game/releases/download/v0.1.1-demo/OptiMesh-Game-v0.1.1-demo-windows-x86_64.zip) · [Release notes](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.1-demo)
 
-Extract the ZIP, open the extracted folder and run **`OptiMesh.exe`**. Keep `OptiMesh.pck` beside the executable. No Godot editor, backend or account is required. This first public exhibition build is a **pre-release** for Windows x86_64.
+Extract the ZIP, open the extracted folder and run **`OptiMesh.exe`**. Keep `OptiMesh.pck` beside the executable. No Godot editor, backend or account is required. This exhibition build is a **pre-release** for Windows x86_64.
 
 **For development**
 
@@ -47,6 +47,8 @@ Manage **rooftop solar**, **battery storage**, **three EV chargers**, **HVAC com
 | **Living site** | Moving cars and pedestrians, changing daylight/weather and animated power flows. |
 | **Offline audio and storage** | Original synthesized music/SFX, adjustable volume and local JSON settings/rankings. |
 
+The exhibition menu adds quiet energy flows, moving clouds and a passing car; the gameplay ribbon shows two ranked tasks with simulated countdowns. [Usability findings and validation](USABILITY.md).
+
 ## Why it exists
 
 The game makes energy-management tradeoffs visible and approachable. The player manages the site manually, then sees the **same scenario** simulated under three approaches: **Normal/default operation**, **the player's decisions**, and an **OptiMesh demo-reference strategy**.
@@ -66,7 +68,9 @@ Click a task or site object to open its inspector. **All tasks** retains complet
 | Space | Pause / resume |
 | 1 / 2 / 3 | 1× / 5× / 15× speed |
 | Esc | Close inspector or skip the introduction |
-| F11 | Toggle fullscreen |
+| F11 | Toggle fullscreen on every screen |
+
+Name entry supports tap-to-focus and requests the system virtual keyboard where supported. Godot 4.5 on Windows does not expose that feature: open the Windows touch keyboard manually, or choose **Use Guest** to start without typing. Fullscreen is also available from the menu and Settings. Physical touchscreen validation is still required.
 
 The leaderboard is local to the machine, retains the top 50 current-rule runs and displays ten. Exhibition administrators can reset it with **Ctrl+Shift+Delete** on that screen, then confirm.
 
@@ -88,7 +92,7 @@ Source is in `scripts/`, scenes in `scenes/`, and regression suites in `tests/`.
 
 ## Status and validation
 
-The game is ready for an **offline exhibition demo**, with both play modes, real strategy comparisons and local rankings. This first Windows release is marked as a pre-release. Gameplay was reviewed at **1920×1080**, **1366×768** and **1280×720**; export-specific checks are recorded in [RELEASE.md](RELEASE.md).
+The game is ready for an **offline exhibition demo**, with both play modes, real strategy comparisons and local rankings. This Windows release is marked as a pre-release. Gameplay was reviewed at **1920×1080**, **1366×768** and **1280×720**; export-specific checks are recorded in [RELEASE.md](RELEASE.md).
 
 The scenario, thermal model and solar-use metric are simplified for demonstration. Independent visitor feedback and sustained performance/audio checks on the actual exhibition laptop remain useful validation steps; detailed limits are in the linked reports.
 

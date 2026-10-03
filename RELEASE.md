@@ -1,28 +1,28 @@
-# Windows exhibition release — v0.1.0-demo
+# Windows exhibition release — v0.1.1-demo
 
-Release: **OptiMesh Game — Exhibition Demo v0.1.0**, marked as a pre-release.
+Release: **OptiMesh Game — Exhibition Demo v0.1.1**, marked as a pre-release.
 
-[Download and release notes](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.0-demo)
+[Download and release notes](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.1-demo)
 
 ## Play
 
-Extract `OptiMesh-Game-v0.1.0-demo-windows-x86_64.zip`, open the extracted folder and run `OptiMesh.exe`. Keep the PCK beside it. No editor, backend, account or repository checkout is required.
+Extract `OptiMesh-Game-v0.1.1-demo-windows-x86_64.zip`, open the extracted folder and run `OptiMesh.exe`. Keep the PCK beside it. No editor, backend, account or repository checkout is required.
 
-The game starts windowed at 1280×720, scales its 1920×1080 logical canvas uniformly, and supports F11 fullscreen while playing. Settings/rankings are stored under `%APPDATA%\Godot\app_userdata\OptiMesh Game\`; extracting a new build does not erase them.
+The game starts windowed at 1280×720, scales its 1920×1080 logical canvas uniformly, and supports global F11 fullscreen and touch fullscreen controls. Settings/rankings are stored under `%APPDATA%\Godot\app_userdata\OptiMesh Game\`; extracting a new build does not erase them.
 
 ## Build configuration
 
 - Engine and export templates: **Godot 4.5 stable**, exact engine version `4.5.stable.official.876b29033`.
 - Preset: **Windows Desktop**, standard x86_64 release template, Compatibility renderer.
-- Product name: **OptiMesh**; file/product version **0.1.0.0**; game version **0.1.0-demo**.
+- Product name: **OptiMesh**; file/product version **0.1.1.0**; game version **0.1.1-demo**.
 - Separate executable and PCK. [Godot's Windows export guidance](https://docs.godotengine.org/en/4.5/tutorials/export/exporting_for_windows.html) recommends avoiding PCK embedding for ordinary Windows distribution.
 - No custom icon was available; no temporary branding asset was invented.
-- No signing certificate is configured. The first public build is unsigned.
+- No signing certificate is configured. This build is unsigned.
 - Tests, documentation/screenshots, legacy regression scene, PowerShell tools and local artifacts are excluded from the PCK. Runtime scripts are compiled/compressed by Godot. Generated binaries/ZIP remain ignored under `dist/`.
 
 ## Reproduce
 
-1. Check out tag `v0.1.0-demo`.
+1. Check out tag `v0.1.1-demo`.
 2. Install standard Godot **4.5 stable** and its matching **4.5.stable** export templates using Godot's Export Template Manager. The official [archive download page](https://godotengine.org/download/archive/4.5-stable/) provides both. Other Godot versions may produce different builds; this release script checks the pinned engine version.
 3. Run:
 
@@ -39,8 +39,8 @@ The official template archive used for this build had SHA-256 `375d83b661794f917
 
 ```text
 dist/
-  OptiMesh-Game-v0.1.0-demo-windows-x86_64.zip
-  OptiMesh-Game-v0.1.0-demo-windows-x86_64/
+  OptiMesh-Game-v0.1.1-demo-windows-x86_64.zip
+  OptiMesh-Game-v0.1.1-demo-windows-x86_64/
     OptiMesh.exe
     OptiMesh.pck
     GODOT-LICENSE.txt
@@ -59,10 +59,8 @@ The ZIP contains only that player folder. There is no loose source tree, test ha
 | 1366×768 | 25 | Zero failures, including reopened settings/ranking |
 | 1280×720 | 25 | Zero failures, including reopened settings/ranking |
 
-**74 checks** cover template versus editor identity, absence of development files in the package, menu/name/Demo onboarding, gameplay loading, sound-preview/music routing, mute/unmute, settings saving, fullscreen/window return, a complete accelerated rendered day, results, local leaderboard write, retry reset and menu/ranking navigation. Captures and logs go to ignored `artifacts/release-tests/`.
+**200 exported checks** pass at all three sizes, including global fullscreen, simulated touch/Guest navigation, onboarding, a full rendered day, results, local persistence and retry. ZIP contents are checked against the exact four-file player package. See [USABILITY.md](USABILITY.md) for root causes, fixes, full regression and rendered review evidence.
 
-Direct desktop review of the normal exported startup additionally exercised name entry, Demo selection, tutorial skip, live gameplay, settings and Test sound at 1366×768. F11 expanded to the physical 2560×1440 desktop and returned to the previous window size; the game closed normally. Reviewed exported captures at all target sizes showed readable gameplay/results/ranking.
+Windows Godot 4.5 does not expose the system virtual-keyboard feature. Tap focuses the field; open the Windows touch keyboard manually or choose Use Guest. Physical touchscreen behavior remains unvalidated. The reference controller is illustrative, not the production OptiMesh optimizer.
 
-The release template emitted a Windows common-controls initialization warning in logs. The game's own Godot controls and tested flows worked; native operating-system dialogs were not tested and the game does not require them. No script errors, missing resources or audio resource leaks occurred in the completed exported tests. Audio playback/routing was exercised; subjective speaker balance remains a hardware listening check. Sustained exhibition-laptop performance and independent visitor feedback remain covered by the limitations in VALIDATION.md.
-
-The tagged release changes presentation/export/test tooling and application version metadata only; gameplay and simulation scripts remain at the established polish baseline.
+ZIP bytes: 35,129,175. SHA-256: `c4acafc80c0ed6366fd1fabf69d72eb639055a63d4b60a546f992f80e4690150`.

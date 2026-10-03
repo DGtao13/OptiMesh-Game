@@ -2,7 +2,7 @@ param(
     [string]$GodotPath = $env:GODOT_PATH
 )
 $ErrorActionPreference = 'Stop'
-$releaseName = 'OptiMesh-Game-v0.1.0-demo-windows-x86_64'
+$releaseName = 'OptiMesh-Game-v0.1.1-demo-windows-x86_64'
 if (-not $GodotPath) {
     $portable = Join-Path $PSScriptRoot '.tools\godot\Godot_v4.5-stable_win64_console.exe'
     if (Test-Path -LiteralPath $portable) { $GodotPath = $portable }
@@ -35,6 +35,8 @@ foreach ($runtimeFile in @($exe, (Join-Path $outputDir 'OptiMesh.pck'))) {
 }
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'third_party\godot\LICENSE.txt') -Destination (Join-Path $outputDir 'GODOT-LICENSE.txt')
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'third_party\godot\COPYRIGHT.txt') -Destination (Join-Path $outputDir 'GODOT-THIRD-PARTY-NOTICES.txt')
+$unexpected = Get-ChildItem -LiteralPath $outputDir -Force | Where-Object { $_.PSIsContainer -or $_.Name -notin $expectedFiles }
+if ($unexpected) { throw 'Export left unexpected files. Close any running release executable and rebuild in a clean output folder.' }
 $zip = Join-Path $PSScriptRoot ('dist\' + $releaseName + '.zip')
 Compress-Archive -LiteralPath $outputDir -DestinationPath $zip -CompressionLevel Optimal -Force
 Write-Output "Godot: $engineVersion"
