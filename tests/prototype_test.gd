@@ -23,8 +23,8 @@ func find_button(node: Node, caption: String) -> Button:
 		if found: return found
 	return null
 
-func press(caption: String) -> void:
-	var item := find_button(app, caption)
+func press(caption: String, parent: Node = null) -> void:
+	var item := find_button(parent if parent != null else app, caption)
 	check(item != null, "button exists: " + caption)
 	if item:
 		check(not item.disabled, "button enabled: " + caption)
@@ -102,7 +102,8 @@ func run() -> void:
 		for mode in app.objects[id].controls:
 			app.control_buttons[mode].pressed.emit()
 			check(app.objects[id].mode == mode and app.selection_mode.text == "Setting: " + mode, "control state: " + id + "/" + mode)
-		check(app.objects[id].values == app.Catalog.objects()[id].values, "controls do not simulate: " + id)
+		if id in ["hvac", "ev_2", "ev_3"]:
+			check(app.objects[id].values == app.Catalog.objects()[id].values, "placeholder readings unchanged: " + id)
 		await snapshot("panel_" + id)
 		check_panel_bounds(app.inspector)
 	app.select_object("battery")
@@ -134,7 +135,87 @@ func run() -> void:
 	press("Reset day")
 	check(app.elapsed_minutes == 480.0 and not app.paused and not app.day_finished, "reset restores playable clock")
 	check(not app.pause_button.disabled, "reset re-enables pause")
-	check(app.objects.battery.mode == "Charge", "clock reset retains intent")
+	check(app.objects.battery.mode == "Hold" and app.simulation.battery_mode == "Hold", "clock reset restores battery intent")
+	check(app.objects.ev_1.mode == "Normal" and app.simulation.ev_mode == "Normal", "clock reset restores EV intent")
+	check(app.simulation.imported_kwh == 0.0 and app.simulation.exported_kwh == 0.0 and app.simulation.electricity_cost_eur == 0.0, "reset clears energy metrics")
+	check(app.simulation.battery_soc() == 64.0 and is_equal_approx(app.simulation.ev_soc(), 38.0), "reset restores SoC")
+	check(app.speed == 1, "reset restores clock speed")
+	# Verify real controls and live inspector values without rebuilding selection.
+	app.select_object("battery")
+	var before_grid: float = app.simulation.grid_kw
+	press("Charge")
+	check(is_equal_approx(app.simulation.grid_kw, before_grid + 15.0), "Charge immediately changes real grid flow")
+	var selected_label: Label = app.inspector_values[0]
+	app.advance_clock(30.0)
+	app.refresh_simulation_ui()
+	check(is_instance_valid(selected_label) and selected_label == app.inspector_values[0], "live panel updates in place")
+	check(app.inspector_values[0].text == "78.3 %", "battery SoC visibly increases")
+	check(app.solar_label.text == "8.0 kW", "solar HUD follows simulated time")
+	check(app.clock_label.text == "08:30", "clock HUD follows simulated time")
+	await snapshot("07_battery_charging")
+	press("Discharge")
+	check(app.simulation.battery_power_kw == -15.0, "Discharge changes simulation power")
+	check(app.grid_title.text == "GRID EXPORT", "HUD labels export direction")
+	app.advance_clock(30.0)
+	app.refresh_simulation_ui()
+	check(app.simulation.battery_soc() < 64.0, "battery loses energy when discharging")
+	await snapshot("08_battery_discharging")
+	app.reset_clock()
+	app.select_object("ev_1")
+	press("Pause", app.inspector)
+	check(app.simulation.ev_power_kw == 0.0 and app.simulation.grid_kw == 4.0, "EV Pause changes real grid")
+	press("Low")
+	check(app.simulation.ev_power_kw == 3.0, "EV Low changes simulation")
+	press("Normal")
+	check(app.simulation.ev_power_kw == 7.0, "EV Normal changes simulation")
+	press("Fast")
+	check(app.simulation.ev_power_kw == 11.0, "EV Fast changes simulation")
+	app.advance_clock(60.0)
+	app.refresh_simulation_ui()
+	check(app.inspector_values[0].text == "54.5 % / 60 kWh", "EV inspector shows live charging")
+	check(app.inspector_values[4].text == "10:33", "EV inspector shows target ETA")
+	await snapshot("09_ev_charging")
+	var grid_before_placeholder: float = app.simulation.grid_kw
+	app.select_object("ev_2")
+	press("Fast")
+	app.select_object("hvac")
+	press("Boost")
+	check(app.simulation.grid_kw == grid_before_placeholder, "placeholder controls excluded from energy model")
+	app.select_object("ev_1")
+	press("Low")
+	app.advance_clock(210.0)
+	app.refresh_simulation_ui()
+	check(app.simulation.ev_departed_below_target and app.simulation.ev_power_kw == 0.0, "EV departure shuts off power and records missed target")
+	check(app.inspector_values[4].text == "Departed below target", "inspector shows missed departure")
+	check(app.price_label.text == "€0.10 / kWh", "midday tariff visible")
+	await snapshot("10_ev_departed")
+	app.advance_clock(150.0)
+	app.select_object("grid")
+	app.refresh_simulation_ui()
+	check(app.price_label.text == "€0.32 / kWh", "late-afternoon tariff visible")
+	check(app.simulation.building_kw == 18.0 and app.simulation.solar_kw == 21.5, "late-afternoon profiles evolve")
+	await snapshot("11_grid_live")
+	app.reset_clock()
+	var paused_energy: float = app.simulation.ev_energy_kwh
+	app.toggle_pause()
+	app.advance_clock(20.0)
+	check(app.simulation.ev_energy_kwh == paused_energy and app.simulation.imported_kwh == 0.0, "UI pause freezes energy, not just time")
+	app.toggle_pause()
+	# Exercise the actual frame callback and HUD refresh timer, not just manual dt.
+	app.select_object("solar")
+	app.set_speed(15)
+	app.set_process(true)
+	await create_timer(0.6).timeout
+	check(app.elapsed_minutes > 485.0 and app.simulation.imported_kwh > 0.0, "real frames advance clock and energy at 15x")
+	check(app.solar_label.text != "4.0 kW" and app.inspector_values[0].text == app.solar_label.text, "real frames refresh HUD and selected inspector")
+	await snapshot("12_live_clock")
+	app.toggle_pause()
+	var paused_minute: float = app.elapsed_minutes
+	var paused_import: float = app.simulation.imported_kwh
+	await create_timer(0.25).timeout
+	check(app.elapsed_minutes == paused_minute and app.simulation.imported_kwh == paused_import, "actual frame loop respects pause")
+	app.set_process(false)
+	app.reset_clock()
 	# Keyboard navigation uses the same state as the buttons.
 	var key := InputEventKey.new()
 	key.keycode = KEY_SPACE

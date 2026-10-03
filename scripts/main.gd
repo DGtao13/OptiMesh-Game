@@ -1,7 +1,8 @@
 extends Control
-## UI flow and prototype clock. Energy values remain static catalog data.
+## UI observes the simulation; only placeholders retain catalog readings.
 const Catalog = preload("res://scripts/site_catalog.gd")
 const SiteMap = preload("res://scripts/site_map.gd")
+const Simulation = preload("res://scripts/energy_simulation.gd")
 const INK = Color("#243e48")
 const MUTED = Color("#6b8185")
 const GREEN = Color("#248c77")
@@ -10,10 +11,15 @@ var screen := ""
 var player_name := ""
 var objects: Dictionary = Catalog.objects()
 var selected_id := ""
-var elapsed_minutes := 480.0
-var paused := false
+var simulation = Simulation.new()
+var elapsed_minutes: float:
+	get: return simulation.time_minutes
+var paused: bool:
+	get: return simulation.paused
+	set(value): simulation.paused = value
 var speed := 1
-var day_finished := false
+var day_finished: bool:
+	get: return simulation.day_finished
 var ui: Control
 var site: Control
 var name_input: LineEdit
@@ -26,6 +32,16 @@ var selection_mode: Label
 var feedback: Label
 var assistant_message: Label
 var fps_label: Label
+var price_label: Label
+var grid_label: Label
+var solar_label: Label
+var grid_title: Label
+var grid_detail: Label
+var clock_detail: Label
+var solar_detail: Label
+var snapshot_label: Label
+var ev_status_label: Label
+var inspector_values: Array[Label] = []
 var hud_refresh := 0.0
 
 func _ready() -> void:
@@ -131,7 +147,7 @@ func brand(show_version: bool = true) -> void:
 	label("OptiMesh", Rect2(108, 27, 300, 60), 36)
 	label("OFFICE ENERGY LAB", Rect2(320, 44, 350, 35), 16, MUTED)
 	if show_version:
-		label("VISUAL PROTOTYPE  /  01", Rect2(1530, 43, 330, 35), 17, MUTED)
+		label("ENERGY SIMULATION  /  02", Rect2(1530, 43, 330, 35), 17, MUTED)
 
 func menu_background() -> void:
 	brand()
@@ -190,21 +206,19 @@ func show_modes() -> void:
 	var demo := panel(Rect2(170, 425, 760, 390))
 	label("READY TO EXPLORE", Rect2(40, 34, 680, 40), 19, GREEN, demo)
 	label("Demo Mode", Rect2(40, 93, 680, 70), 43, INK, demo)
-	paragraph("A working site interface, clickable equipment and a clock you control. All energy readings are illustrative.", Rect2(40, 181, 675, 105), 25, MUTED, demo)
+	paragraph("Simulate a clear office day. Manage the battery and EV 01 while demand, solar and prices change.", Rect2(40, 181, 675, 105), 25, MUTED, demo)
 	button("Start Demo  →", Rect2(40, 300, 680, 60), start_demo, demo, true)
 	var normal := panel(Rect2(975, 425, 760, 390), Color("#e1e9e3"))
 	label("COMING LATER", Rect2(40, 34, 680, 40), 19, MUTED, normal)
 	label("Normal Mode", Rect2(40, 93, 680, 70), 43, MUTED, normal)
-	paragraph("Energy simulation, scenarios and scoring will arrive in a future milestone.", Rect2(40, 181, 675, 105), 25, MUTED, normal)
+	paragraph("More scenarios and scoring will arrive in a future milestone.", Rect2(40, 181, 675, 105), 25, MUTED, normal)
 	var disabled := button("Not available yet", Rect2(40, 300, 680, 60), func(): pass, normal)
 	disabled.disabled = true
 	button("← Your name", Rect2(170, 880, 250, 60), show_name)
 
 func start_demo() -> void:
-	elapsed_minutes = 480.0
-	paused = false
+	simulation.reset()
 	speed = 1
-	day_finished = false
 	selected_id = ""
 	objects = Catalog.objects()
 	show_game()
@@ -223,9 +237,13 @@ func show_game() -> void:
 	label("DEMO", Rect2(715, 42, 90, 32), 19, GREEN)
 	label("Manager: " + player_name, Rect2(835, 42, 650, 34), 20, MUTED)
 	clock_label = metric(55, "OFFICE DAY  /  01", "08:00", "1× = 1 simulated minute / second", GREEN)
-	metric(340, "ELECTRICITY PRICE", "€0.18 / kWh", "Illustrative tariff")
-	metric(625, "GRID IMPORT", "11.8 kW", "Illustrative reading")
-	metric(910, "SOLAR GENERATION", "12.8 kW", "Illustrative reading", GREEN)
+	clock_detail = clock_label.get_parent().get_child(2)
+	price_label = metric(340, "ELECTRICITY PRICE", "", "Time-of-day import tariff")
+	grid_label = metric(625, "GRID IMPORT", "", "")
+	grid_title = grid_label.get_parent().get_child(0)
+	grid_detail = grid_label.get_parent().get_child(2)
+	solar_label = metric(910, "SOLAR GENERATION", "", "", GREEN)
+	solar_detail = solar_label.get_parent().get_child(2)
 	var transport := panel(Rect2(1195, 111, 671, 100))
 	label("CLOCK CONTROLS", Rect2(20, 9, 310, 28), 16, MUTED, transport)
 	pause_button = button("Pause", Rect2(20, 42, 125, 44), toggle_pause, transport)
@@ -245,20 +263,22 @@ func show_game() -> void:
 	var events := panel(Rect2(55, 929, 370, 106))
 	label("UPCOMING", Rect2(20, 9, 330, 28), 16, MUTED, events)
 	label("12:30 · EV 01 departure", Rect2(20, 39, 330, 32), 22, INK, events)
-	label("Preview event · no simulation", Rect2(20, 77, 330, 23), 15, MUTED, events)
+	ev_status_label = label("", Rect2(20, 77, 330, 23), 15, MUTED, events)
 	var performance := panel(Rect2(445, 929, 320, 106))
 	label("SITE SNAPSHOT", Rect2(20, 9, 280, 28), 16, MUTED, performance)
-	label("Self-supply  52 %", Rect2(20, 39, 280, 32), 24, GREEN, performance)
-	fps_label = label("Demo metric  ·  60 FPS", Rect2(20, 77, 280, 23), 15, MUTED, performance)
+	snapshot_label = label("", Rect2(20, 39, 280, 32), 24, GREEN, performance)
+	fps_label = label("", Rect2(20, 77, 280, 23), 15, MUTED, performance)
 	var assistant := panel(Rect2(785, 929, 640, 106), Color("#dae9e0"))
 	label("OPTI  /  SITE GUIDE", Rect2(20, 9, 600, 28), 16, GREEN, assistant)
 	assistant_message = paragraph("Try selecting the battery, then choose Charge, Hold or Discharge.", Rect2(20, 41, 600, 56), 22, INK, assistant)
+	refresh_simulation_ui()
 
 func empty_inspector() -> void:
 	for child in inspector.get_children():
 		inspector.remove_child(child)
 		child.queue_free()
 	control_buttons.clear()
+	inspector_values.clear()
 
 func show_inspector_empty() -> void:
 	empty_inspector()
@@ -266,7 +286,7 @@ func show_inspector_empty() -> void:
 	label("A connected\nworkplace.", Rect2(28, 110, 350, 145), 38, INK, inspector)
 	paragraph("Select an object on the map to view readings and explore its controls.", Rect2(28, 290, 350, 120), 25, MUTED, inspector)
 	paragraph("Solar · Building · HVAC\nBattery · Grid · Inverter\nEV bays 01, 02 and 03", Rect2(28, 457, 350, 130), 23, INK, inspector)
-	paragraph("DEMO VALUES\nThe clock runs. Energy readings stay fixed in this prototype.", Rect2(28, 642, 350, 120), 20, MUTED, inspector)
+	paragraph("LIVE SIMULATION\nBattery and EV 01 controls affect power. HVAC and EV 02/03 are placeholders.", Rect2(28, 642, 350, 120), 20, MUTED, inspector)
 
 func select_object(id: String) -> void:
 	if not objects.has(id): return
@@ -276,17 +296,19 @@ func select_object(id: String) -> void:
 	assistant_message.text = "Selected %s. Explore its controls in the site inspector." % objects[id].name
 
 func show_object_panel() -> void:
+	_sync_readings()
 	empty_inspector()
 	var data: Dictionary = objects[selected_id]
 	label(data.type, Rect2(28, 28, 310, 40), 16, Color(data.color), inspector)
 	button("×", Rect2(335, 23, 44, 44), close_inspector, inspector)
 	label(data.name, Rect2(28, 87, 350, 65), 30, INK, inspector)
-	paragraph(data.description, Rect2(28, 168, 350, 122), 21, MUTED, inspector)
+	paragraph(data.description, Rect2(28, 168, 350, 90), 19, MUTED, inspector)
+	var compact_rows: bool = data.values.size() > 4
 	for index in range(data.values.size()):
 		var entry: Array = data.values[index]
-		var row := panel(Rect2(23, 305 + index * 61, 360, 54), Color("#edf2ed"), inspector)
-		label(entry[0], Rect2(12, 4, 325, 22), 15, MUTED, row)
-		label(entry[1], Rect2(12, 22, 325, 30), 23, INK, row)
+		var row := panel(Rect2(23, (265 + index * 48) if compact_rows else (305 + index * 61), 360, 46 if compact_rows else 54), Color("#edf2ed"), inspector)
+		label(entry[0], Rect2(12, 0 if compact_rows else 4, 325, 22), 13 if compact_rows else 15, MUTED, row)
+		inspector_values.append(label(entry[1], Rect2(12, 18 if compact_rows else 22, 325, 28 if compact_rows else 30), 19 if compact_rows else 23, INK, row))
 	label("CONTROL INTENT", Rect2(28, 563, 350, 30), 16, MUTED, inspector)
 	selection_mode = label("", Rect2(28, 598, 350, 34), 23, GREEN, inspector)
 	var count: int = data.controls.size()
@@ -303,21 +325,32 @@ func show_object_panel() -> void:
 			item.add_theme_stylebox_override(state, compact)
 		item.size = Vector2(width, 52)
 		control_buttons[mode] = item
-	feedback = paragraph("Demo controls change intent only.", Rect2(28, 722, 350, 65), 18, MUTED, inspector)
+	feedback = paragraph(_control_note(), Rect2(28, 722, 350, 65), 18, MUTED, inspector)
 	_update_mode_buttons()
 
 func apply_control(mode: String) -> void:
 	if selected_id.is_empty(): return
+	if selected_id in ["battery", "ev_1"]:
+		if day_finished: return
+		if selected_id == "battery": simulation.set_battery_mode(mode)
+		else: simulation.set_ev_mode(mode)
 	objects[selected_id].mode = mode
+	refresh_simulation_ui()
 	_update_mode_buttons()
-	feedback.text = "%s selected. Readings remain illustrative." % mode
-	assistant_message.text = "%s: %s intent saved for this demo session." % [objects[selected_id].name, mode]
+	feedback.text = _control_note()
+	assistant_message.text = "%s: %s selected." % [objects[selected_id].name, mode]
+
+func _control_note() -> String:
+	if selected_id == "battery": return "Live control · + charge / − discharge. Efficiency: 95 % each way."
+	if selected_id == "ev_1": return "Live charging · stops at target or departure. Charging efficiency: 90 %."
+	return "View only / placeholder control. Does not change simulated demand."
 
 func _update_mode_buttons() -> void:
 	var mode: String = objects[selected_id].mode
 	selection_mode.text = "Setting: " + mode
 	for key in control_buttons:
 		var item: Button = control_buttons[key]
+		item.disabled = day_finished and selected_id in ["battery", "ev_1"]
 		var compact := panel_style(Color("#c5e1d4") if key == mode else Color("#e8efea"), 10)
 		compact.content_margin_left = 8
 		compact.content_margin_right = 8
@@ -346,29 +379,68 @@ func _update_speed_buttons() -> void:
 			item.add_theme_stylebox_override("normal", panel_style(Color("#c5e1d4") if speed == rate else Color("#e8efea"), 10))
 
 func reset_clock() -> void:
-	elapsed_minutes = 480.0
-	paused = false
-	day_finished = false
+	simulation.reset()
+	speed = 1
+	_update_speed_buttons()
+	objects = Catalog.objects()
 	pause_button.disabled = false
 	pause_button.text = "Pause"
-	_update_clock_text()
-	assistant_message.text = "Office day reset to 08:00. Your equipment settings are retained."
+	refresh_simulation_ui()
+	if selected_id != "":
+		show_object_panel()
+	assistant_message.text = "Office day reset to 08:00. Energy, metrics and controls restored."
 
 func advance_clock(delta: float) -> void:
 	if paused or day_finished: return
-	elapsed_minutes = minf(elapsed_minutes + delta * speed, 1080.0)
-	if elapsed_minutes >= 1080.0:
-		day_finished = true
-		paused = true
+	simulation.advance(delta * speed)
+	if day_finished:
 		if is_instance_valid(pause_button):
 			pause_button.text = "Day ended"
 			pause_button.disabled = true
 		if is_instance_valid(assistant_message):
-			assistant_message.text = "18:00 · Office day complete. Reset the clock to explore again."
+			assistant_message.text = "18:00 · Day complete. Final metrics retained. Reset to start again."
+		refresh_simulation_ui()
+		if selected_id != "": _update_mode_buttons()
+
+static func time_text(minute: float) -> String:
+	var minutes := int(floor(minute + 1e-7))
+	return "%02d:%02d" % [floori(float(minutes) / 60.0), minutes % 60]
+
+func _sync_readings() -> void:
+	var sim = simulation
+	objects.battery.mode = sim.battery_mode
+	objects.ev_1.mode = sim.ev_mode
+	objects.building.values = [["Building load", "%.1f kW" % sim.building_kw], ["Energy today", "%.1f kWh" % sim.building_energy_kwh], ["Floor area", "1,200 m²"], ["Opening hours", "08:00 – 18:00"]]
+	objects.solar.values = [["Generation (AC)", "%.1f kW" % sim.solar_kw], ["Installed capacity", "%.0f kWp" % sim.config.solar_capacity_kwp], ["Energy today", "%.1f kWh" % sim.solar_generated_kwh], ["Baseline", "Clear day"]]
+	objects.inverter.values = [["AC output", "%.1f kW" % sim.solar_kw], ["Array rating", "%.0f kWp" % sim.config.solar_capacity_kwp], ["Conversion", "Included in solar curve"], ["Status", "Online"]]
+	objects.battery.values = [["State of charge", "%.1f %%" % sim.battery_soc()], ["Stored / capacity", "%.1f / %.0f kWh" % [sim.battery_energy_kwh, sim.config.battery_capacity_kwh]], ["AC power (+ charge / − discharge)", "%+.1f kW" % sim.battery_power_kw], ["Charge / discharge limit", "%.0f / %.0f kW" % [sim.config.battery_charge_limit_kw, sim.config.battery_discharge_limit_kw]]]
+	objects.grid.values = [["Grid flow", "%s %.1f kW" % ["Import" if sim.grid_kw >= 0.0 else "Export", absf(sim.grid_kw)]], ["Import / export today", "%.1f / %.1f kWh" % [sim.imported_kwh, sim.exported_kwh]], ["Energy cost / peak import", "€%.2f / %.1f kW" % [sim.electricity_cost_eur, sim.max_grid_import_kw]], ["Import price / export price", "€%.2f / €0.00 per kWh" % sim.price_eur_per_kwh]]
+	var eta: float = sim.ev_completion_minute()
+	var completion := "Paused" if sim.ev_power_kw == 0.0 else time_text(ceil(eta - 1e-7))
+	if sim.ev_target_reached: completion = "Target reached"
+	elif sim.ev_departed: completion = "Departed below target"
+	elif eta > sim.config.ev_departure_minute: completion += " · after departure"
+	objects.ev_1.values = [["EV SoC / battery capacity", "%.1f %% / %.0f kWh" % [sim.ev_soc(), sim.config.ev_capacity_kwh]], ["Target / reached", "%.0f %% / %s" % [sim.config.ev_target_soc, "Yes" if sim.ev_target_reached else "No"]], ["AC charging power / limit", "%.1f / %.0f kW" % [sim.ev_power_kw, sim.config.ev_max_power_kw]], ["Departure", time_text(sim.config.ev_departure_minute) + (" · departed" if sim.ev_departed else " · connected")], ["Target ETA at current rate", completion], ["Stored energy", "%.1f kWh" % sim.ev_energy_kwh]]
+
+func refresh_simulation_ui() -> void:
+	_sync_readings()
+	_update_clock_text()
+	price_label.text = "€%.2f / kWh" % simulation.price_eur_per_kwh
+	grid_title.text = "GRID IMPORT" if simulation.grid_kw >= 0.0 else "GRID EXPORT"
+	grid_label.text = "%.1f kW" % absf(simulation.grid_kw)
+	grid_detail.text = "In %.1f / out %.1f kWh · €%.2f" % [simulation.imported_kwh, simulation.exported_kwh, simulation.electricity_cost_eur]
+	solar_label.text = "%.1f kW" % simulation.solar_kw
+	clock_detail.text = "1× = 1 min/s · Building %.1f kW" % simulation.building_kw
+	solar_detail.text = "Battery %.0f %% · EV 01 %.1f kW" % [simulation.battery_soc(), simulation.ev_power_kw]
+	snapshot_label.text = "Self-supply  %.0f %%" % simulation.self_supply_percent()
+	fps_label.text = "Local supply share · %d FPS live" % Engine.get_frames_per_second()
+	ev_status_label.text = "Departed · " + ("target missed" if simulation.ev_departed_below_target else "target reached") if simulation.ev_departed else ("Target reached · connected" if simulation.ev_target_reached else "Connected · %.1f kW charging" % simulation.ev_power_kw)
+	if selected_id != "" and inspector_values.size() == objects[selected_id].values.size():
+		for index in range(inspector_values.size()):
+			inspector_values[index].text = objects[selected_id].values[index][1]
 
 func _update_clock_text() -> void:
-	var minutes := int(elapsed_minutes)
-	clock_label.text = "%02d:%02d" % [floori(float(minutes) / 60.0), minutes % 60]
+	clock_label.text = time_text(elapsed_minutes)
 
 func _process(delta: float) -> void:
 	if screen != "game": return
@@ -376,8 +448,7 @@ func _process(delta: float) -> void:
 	hud_refresh += delta
 	if hud_refresh >= 0.2:
 		hud_refresh = 0.0
-		_update_clock_text()
-		fps_label.text = "Demo metric  ·  %d FPS live" % Engine.get_frames_per_second()
+		refresh_simulation_ui()
 
 func _unhandled_key_input(event: InputEvent) -> void:
 	if screen != "game" or not event is InputEventKey or not event.pressed or event.echo: return

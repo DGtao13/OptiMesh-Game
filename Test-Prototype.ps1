@@ -6,6 +6,8 @@ param(
 $ErrorActionPreference = 'Stop'
 if (-not (Test-Path -LiteralPath $GodotPath)) { throw 'Pass -GodotPath with the path to a Godot 4.5+ executable.' }
 New-Item -ItemType Directory -Force (Join-Path $PSScriptRoot 'artifacts') | Out-Null
+& $GodotPath --headless --path $PSScriptRoot --script tests/energy_simulation_test.gd
+if ($LASTEXITCODE -ne 0) { throw "Energy simulation tests failed (exit $LASTEXITCODE)." }
 $testArgs = @('--path', $PSScriptRoot, '--script', 'tests/prototype_test.gd')
 if ($Capture) { $testArgs += @('--resolution', $Resolution, '--', '--capture') }
 else { $testArgs = @('--headless') + $testArgs }
