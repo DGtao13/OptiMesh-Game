@@ -13,3 +13,6 @@ if ($Capture) { $testArgs += @('--resolution', $Resolution, '--', '--capture') }
 else { $testArgs = @('--headless') + $testArgs }
 & $GodotPath @testArgs
 if ($LASTEXITCODE -ne 0) { throw "Prototype tests failed (exit $LASTEXITCODE)." }
+$testArgs[$testArgs.IndexOf('tests/prototype_test.gd')] = 'tests/demo_loop_test.gd'
+& $GodotPath @testArgs
+if ($LASTEXITCODE -ne 0) { throw "Demo loop tests failed (exit $LASTEXITCODE)." }

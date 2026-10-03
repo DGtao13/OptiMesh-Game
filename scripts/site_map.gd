@@ -3,13 +3,25 @@ extends Control
 signal object_selected(id: String)
 
 var selected_id := ""
+var guided_id := ""
 var hovered_id := ""
 var hit_regions: Array[Dictionary] = []
 var font: Font = ThemeDB.fallback_font
 const INK = Color("#263f49")
 const MINT = Color("#2b9985")
+const ROAD_RIGHT := 1370.0
+const DEPARTURE_DURATION := 6.0
+var ev_departed_visual := false
+var ev_vehicle_visible := true
+var departure_elapsed := 0.0
+var departure_car: Node2D
 
 func _ready() -> void:
+	set_process(false)
+	departure_car = Node2D.new()
+	add_child(departure_car)
+	departure_car.visible = false
+	departure_car.draw.connect(func(): car(Vector2(-24.5, -44), Color("#f1f3e7"), departure_car))
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	mouse_exited.connect(func(): hovered_id = ""; queue_redraw())
 	hit_regions = [
@@ -85,21 +97,64 @@ func tree(point: Vector2, radius: float = 25) -> void:
 	draw_circle(point + Vector2(-6, -7), radius * 0.72, Color("#a5cbb5"))
 	draw_circle(point + Vector2(7, 3), radius * 0.50, Color("#79a990"))
 
-func car(point: Vector2, color: Color) -> void:
-	draw_style_box(style(Color(0, 0, 0, 0.12), 13), Rect2(point + Vector2(5, 7), Vector2(49, 88)))
-	draw_style_box(style(color, 12), Rect2(point, Vector2(49, 88)))
-	draw_style_box(style(color.lightened(0.15), 8), Rect2(point + Vector2(5, 24), Vector2(39, 36)))
-	draw_style_box(style(Color("#345c68"), 4), Rect2(point + Vector2(6, 15), Vector2(37, 15)))
-	draw_style_box(style(Color("#345c68"), 4), Rect2(point + Vector2(6, 63), Vector2(37, 10)))
+func car(point: Vector2, color: Color, canvas: CanvasItem = null) -> void:
+	if canvas == null: canvas = self
+	canvas.draw_style_box(style(Color(0, 0, 0, 0.12), 13), Rect2(point + Vector2(5, 7), Vector2(49, 88)))
+	canvas.draw_style_box(style(color, 12), Rect2(point, Vector2(49, 88)))
+	canvas.draw_style_box(style(color.lightened(0.15), 8), Rect2(point + Vector2(5, 24), Vector2(39, 36)))
+	canvas.draw_style_box(style(Color("#345c68"), 4), Rect2(point + Vector2(6, 15), Vector2(37, 15)))
+	canvas.draw_style_box(style(Color("#345c68"), 4), Rect2(point + Vector2(6, 63), Vector2(37, 10)))
 	for offset in [Vector2(5, 5), Vector2(35, 5)]:
-		draw_rect(Rect2(point + offset, Vector2(9, 4)), Color("#eef6e7"))
+		canvas.draw_rect(Rect2(point + offset, Vector2(9, 4)), Color("#eef6e7"))
+
+func begin_ev_departure() -> void:
+	if ev_departed_visual: return
+	ev_departed_visual = true
+	departure_elapsed = 0.0
+	departure_car.visible = true
+	departure_car.queue_redraw()
+	advance_departure_visual(0.0)
+	set_process(true)
+	queue_redraw() # Remove the parked car once; the map stays cached thereafter.
+
+func reset_ev_visual() -> void:
+	ev_departed_visual = false
+	ev_vehicle_visible = true
+	departure_elapsed = 0.0
+	departure_car.visible = false
+	set_process(false)
+	queue_redraw()
+
+func advance_departure_visual(seconds: float) -> void:
+	if not ev_departed_visual: return
+	departure_elapsed = clampf(departure_elapsed + maxf(seconds, 0.0), 0.0, DEPARTURE_DURATION)
+	departure_car.scale = Vector2.ONE * lerpf(1.0, 0.8, minf(departure_elapsed / 1.5, 1.0))
+	if departure_elapsed <= 1.5:
+		var progress := departure_elapsed / 1.5
+		departure_car.position = Vector2(136.5, lerpf(409.0, 530.0, progress))
+		departure_car.rotation = 0.0 # Reverse out of the bay.
+	elif departure_elapsed <= 2.0:
+		departure_car.position = Vector2(136.5, 530.0)
+		departure_car.rotation = (departure_elapsed - 1.5) * PI
+	else:
+		departure_car.position = Vector2(lerpf(136.5, 1440.0, (departure_elapsed - 2.0) / 4.0), 530.0)
+		departure_car.rotation = PI * 0.5
+	ev_vehicle_visible = departure_elapsed < DEPARTURE_DURATION
+	departure_car.visible = ev_vehicle_visible
+	if not ev_vehicle_visible: set_process(false)
+
+func _process(delta: float) -> void:
+	advance_departure_visual(delta)
 
 func _draw() -> void:
 	# Landscaped campus slab and a quiet access lane.
 	draw_style_box(style(Color("#d8e5dd"), 28), Rect2(10, 0, 1360, 610))
 	draw_style_box(style(Color("#e4ebe3"), 20), Rect2(55, 20, 1260, 480))
-	draw_style_box(style(Color("#7d9193"), 16), Rect2(40, 510, 1290, 80))
-	for x in range(85, 1260, 95):
+	var road := style(Color("#7d9193"), 16)
+	road.corner_radius_top_right = 0
+	road.corner_radius_bottom_right = 0
+	draw_style_box(road, Rect2(40, 510, ROAD_RIGHT - 40, 80))
+	for x in range(85, 1330, 95):
 		draw_line(Vector2(x, 550), Vector2(x + 45, 550), Color("#d5e1dc"), 3, true)
 	txt(Vector2(1055, 580), "ENTRY / EXIT  →", 16, Color("#eef4ef"))
 	# Pedestrian strip and energy cable routes.
@@ -136,7 +191,8 @@ func _draw() -> void:
 		draw_rect(Rect2(x + 4, 339, 84, 134), Color("#67a88e"), false, 2)
 		box(x + 25, 322, 30, 15, 35, 5, Color("#f3f6ef"), Color("#4d6970"))
 		draw_rect(Rect2(x + 34, 341, 13, 9), MINT)
-		car(Vector2(x + 22, 365), [Color("#f1f3e7"), Color("#75a8bc"), Color("#ddc280")][index])
+		if index != 0 or not ev_departed_visual:
+			car(Vector2(x + 22, 365), [Color("#f1f3e7"), Color("#75a8bc"), Color("#ddc280")][index])
 		txt(Vector2(x + 23, 468), "EV 0%d" % (index + 1), 14, Color("#2a7965"))
 	# Conventional parking row.
 	for index in range(6):
@@ -163,11 +219,12 @@ func _draw() -> void:
 		tree(point)
 	# Hover and selected outlines use exactly the same polygons as picking.
 	for region in hit_regions:
-		if region.id == selected_id or region.id == hovered_id:
+		if region.id == selected_id or region.id == hovered_id or region.id == guided_id:
 			var outline: PackedVector2Array = region.polygon.duplicate()
 			outline.append(outline[0])
 			draw_colored_polygon(region.polygon, Color(0.13, 0.67, 0.55, 0.10))
-			draw_polyline(outline, MINT if region.id == selected_id else Color("#7cb6a3"), 4 if region.id == selected_id else 2, true)
+			var outline_color := MINT if region.id == selected_id else (Color("#ddaa3b") if region.id == guided_id else Color("#7cb6a3"))
+			draw_polyline(outline, outline_color, 4 if region.id == selected_id or region.id == guided_id else 2, true)
 	badge(Vector2(435, 15), "Rooftop solar", Color("#ddaa3b"))
 	badge(Vector2(798, 54), "HVAC", Color("#6d99ba"))
 	badge(Vector2(98, 281), "EV charging · 3 bays", MINT)

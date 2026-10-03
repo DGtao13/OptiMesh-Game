@@ -75,6 +75,7 @@ func run() -> void:
 	check(find_button(app, "Not available yet").disabled, "Normal Mode is disabled")
 	await snapshot("03_modes")
 	press("Start Demo  →")
+	app.skip_tutorial() # Onboarding has its own action/flow regression suite.
 	app.set_process(false)
 	check(app.screen == "game", "Demo enters main scene")
 	check(app.elapsed_minutes < 481.0 and app.speed == 1, "demo starts at 08:00 / 1x")
@@ -130,9 +131,10 @@ func run() -> void:
 	check(app.clock_label.text == "09:30", "HUD time formatting")
 	app.advance_clock(100.0)
 	check(app.elapsed_minutes == 1080.0 and app.day_finished and app.paused, "clock clamps at office close")
-	check(app.pause_button.disabled, "end-of-day pause disabled")
+	check(app.screen == "results", "end-of-day results transition")
 	await snapshot("05_day_end")
-	press("Reset day")
+	press("Play Again  →")
+	app.skip_tutorial()
 	check(app.elapsed_minutes == 480.0 and not app.paused and not app.day_finished, "reset restores playable clock")
 	check(not app.pause_button.disabled, "reset re-enables pause")
 	check(app.objects.battery.mode == "Hold" and app.simulation.battery_mode == "Hold", "clock reset restores battery intent")
@@ -184,6 +186,7 @@ func run() -> void:
 	app.select_object("ev_1")
 	press("Low")
 	app.advance_clock(210.0)
+	app.select_object("ev_1") # Departure feedback takes the inspector first.
 	app.refresh_simulation_ui()
 	check(app.simulation.ev_departed_below_target and app.simulation.ev_power_kw == 0.0, "EV departure shuts off power and records missed target")
 	check(app.inspector_values[4].text == "Departed below target", "inspector shows missed departure")

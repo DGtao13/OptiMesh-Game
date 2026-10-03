@@ -1,4 +1,4 @@
-# First deterministic energy core
+# Deterministic energy scenario and guided demo
 
 All numbers are a configurable demonstration scenario, not external measurements or live tariffs. The map and existing visual polish are preserved.
 
@@ -79,8 +79,16 @@ where `consumption = building + EV + max(battery_power, 0)` and `local_supply = 
 
 With default controls left unchanged all day, independent integration predicts **28.988636 kWh imported**, **34.488636 kWh exported**, **€6.028864 energy cost**, **11 kW peak import**, battery **64%**, and EV **80%** at departure.
 
-At 18:00 progression freezes, final metrics and the instantaneous 18:00 readings are preserved, and real battery/EV action buttons are disabled. Reset Day restores all initial energies, default intents, counters, departure flags, time, pause state and UI speed to 1×. No results screen is added.
+At 18:00 progression freezes and the UI opens results from the preserved model: actual cost, import/export, peak import, generated solar, final battery SoC, EV requirement result and departure SoC. Local supply is explicitly the instantaneous 18:00 reading, not a daily renewable metric or score.
+
+Reset Day restores all initial energies, default intents, counters, departure flags, time and UI speed to 1×. Completed guidance stays completed; active guidance keeps the reset clock paused. Play Again starts the complete scenario and introduction again. Main Menu retains the entered player name.
+
+## Guidance and departure presentation
+
+The clock waits during onboarding. Continue opens the action-driven sequence: inspect building/solar/grid, choose an EV 01 charging mode, try a battery mode, then acknowledge price planning. Actions use the existing real controls; guidance does not calculate or change energy itself. Skip is available throughout. Completing or skipping guidance resumes the day. The persistent objective shows EV 01's requirement, then its actual departure result. Upcoming sorts the remaining EV deadline and tariff transitions by simulated time.
+
+At departure, the model's existing target flag and recorded SoC drive a prominent ready/missed message. The map empties bay 01 and moves a drawn vehicle out to the bottom road and through the right exit over six real seconds. This cosmetic animation runs independently of simulation speed/pause; it changes no model values. Reset restores the parked car. Selecting the empty charger still shows departed status.
 
 ## Scope limits
 
-HVAC and EV 02/03 are visually interactive placeholders and contribute no separately controlled power. The static vehicle drawing remains after EV 01 departs; its live inspector/status identifies departure. View/forecast/diagnostic/schedule buttons retain presentation intent only. No optimization, scoring, comparison baseline, events, weather variation, multiple simulated EVs, save/load, networking or hardware integration is included.
+HVAC and EV 02/03 are visually interactive placeholders and contribute no separately controlled power. View/forecast/diagnostic/schedule buttons retain presentation intent only. No automated optimization, scoring, comparison baseline, random events, weather variation, multiple simulated EVs, save/load, networking or hardware integration is included. The energy model and its independent regression tests are unchanged by the guided demo milestone.
