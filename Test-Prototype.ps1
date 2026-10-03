@@ -1,0 +1,13 @@
+param(
+    [string]$GodotPath = (Join-Path $PSScriptRoot '.tools\godot\Godot_v4.5-stable_win64_console.exe'),
+    [switch]$Capture,
+    [string]$Resolution = '1920x1080'
+)
+$ErrorActionPreference = 'Stop'
+if (-not (Test-Path -LiteralPath $GodotPath)) { throw 'Pass -GodotPath with the path to a Godot 4.5+ executable.' }
+New-Item -ItemType Directory -Force (Join-Path $PSScriptRoot 'artifacts') | Out-Null
+$testArgs = @('--path', $PSScriptRoot, '--script', 'tests/prototype_test.gd')
+if ($Capture) { $testArgs += @('--resolution', $Resolution, '--', '--capture') }
+else { $testArgs = @('--headless') + $testArgs }
+& $GodotPath @testArgs
+if ($LASTEXITCODE -ne 0) { throw "Prototype tests failed (exit $LASTEXITCODE)." }
