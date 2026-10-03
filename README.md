@@ -1,77 +1,99 @@
 # OptiMesh Game
 
-The standalone interactive energy-management game and exhibition demo for **OptiMesh**, built with **Godot 4.5+**. Manage an office site through a simulated working day and see how coordinated energy decisions affect cost, power peaks and service quality.
+**Run an office. Balance its energy. See what coordinated management changes.**
 
-The main OptiMesh platform is developed separately at [Praz40/OptiMesh](https://github.com/Praz40/OptiMesh), which contains the dashboard, backend, firmware, documentation and **OptiMesh Web Simulator**. This repository contains **OptiMesh Game**, the standalone Godot game. The Web Simulator is the browser simulator in the main platform repository.
+[![Godot 4.5+](https://img.shields.io/badge/Godot-4.5%2B-478CBF?logo=godotengine&logoColor=white)](https://godotengine.org/)
+[![Windows exhibition demo](https://img.shields.io/badge/Windows-v0.1.0--demo-258F7B?logo=windows&logoColor=white)](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.0-demo)
+[![Main OptiMesh platform](https://img.shields.io/badge/OptiMesh-main%20platform-344E56)](https://github.com/Praz40/OptiMesh)
 
-## What you manage
+![OptiMesh gameplay: solar, EV charging, office climate, battery and the Opti companion](docs/images/gameplay.png)
 
-Balance rooftop solar, battery storage, three EV chargers, HVAC comfort and an equipment wash against electricity prices and temporary grid constraints. Clouds, dirty panels, vehicle arrivals and a changed departure deadline create decisions throughout the day. The **Opti companion** introduces the site, highlights risks and forecasts, and explains consequences; recent notes let you reread delivered events.
+## What is OptiMesh Game?
 
-- **Demo Mode:** approximately eight minutes of running clock time, plus onboarding and pauses; intended for exhibition visitors.
-- **Normal Mode:** approximately twenty minutes, plus pauses; the same scenario with more time to plan.
-- **Score and local leaderboard:** up to 1000 points for services and efficiency, with serious service failures reducing the score. Rankings are stored locally on the machine.
-- **Results:** compare actual simulated **Normal operation**, **Player** and **OptiMesh demo reference** runs. The reference is an illustrative offline controller; it is not the production OptiMesh optimizer.
+OptiMesh Game is the standalone interactive energy-management game and exhibition demo for the wider **OptiMesh** project. You manage a working office site through a day of changing demand, weather and deadlines, making the decisions that coordinated energy management is designed to handle.
 
-The game runs locally without accounts, a backend or hardware connections. Audio is original and synthesized; the site uses lightweight vector drawing and Godot's Compatibility renderer.
+| Project | Role |
+|---|---|
+| [OptiMesh Platform](https://github.com/Praz40/OptiMesh) | Main team project: dashboard, backend, firmware and platform documentation. |
+| **OptiMesh Web Simulator** | Browser simulation within the main platform repository. |
+| **OptiMesh Game** | This separate, offline Godot exhibition game. |
 
-## Run with Godot
+## Download and play
 
-1. Install the standard **Godot 4.5+** editor; the .NET edition is not required.
-2. Clone or download this repository.
-3. In Godot's Project Manager, select **Import** and open `project.godot`.
-4. Open the project and press **F5** to run the main scene.
+**For players and exhibition laptops**
 
-No addons or export templates are needed to play from the editor. Exported executables and the Godot runtime are not bundled in this repository.
+[**Download the Windows x86_64 demo ZIP**](https://github.com/DGtao13/OptiMesh-Game/releases/download/v0.1.0-demo/OptiMesh-Game-v0.1.0-demo-windows-x86_64.zip) · [Release notes](https://github.com/DGtao13/OptiMesh-Game/releases/tag/v0.1.0-demo)
 
-On Windows, the optional launcher accepts an installed executable:
+Extract the ZIP, open the extracted folder and run **`OptiMesh.exe`**. Keep `OptiMesh.pck` beside the executable. No Godot editor, backend or account is required. This first public exhibition build is a **pre-release** for Windows x86_64.
 
-```powershell
-./run.ps1 -GodotPath 'C:\Tools\Godot.exe'
-./run.ps1 -GodotPath 'C:\Tools\Godot.exe' -Fullscreen
-```
+**For development**
 
-The launcher also checks `GODOT_PATH`, `godot` on PATH, or an optional local runtime in ignored `.tools/godot/`.
+Clone the repository, install standard **Godot 4.5+**, import `project.godot` in the Project Manager and press **F5**. The .NET edition and addons are not required. The optional Windows launcher is `./run.ps1 -GodotPath 'C:\Tools\Godot.exe'`. See [RELEASE.md](RELEASE.md) to reproduce the pinned Godot 4.5 stable Windows build.
 
-## Play
+## Gameplay
 
-Choose **New Game**, enter a name, then select Demo or Normal. The tutorial pauses time and can be skipped. Click a task in the deadline ribbon or equipment on the site to open its controls. **All tasks** includes completed and missed requirements. Opti offers a button to open the relevant equipment, and **Recent notes** pauses the day for rereading.
+Manage **rooftop solar**, **battery storage**, **three EV chargers**, **HVAC comfort** and an **equipment wash**. Work around electricity prices, clouds, dirty panels, vehicle arrivals/departures and a temporary grid import limit. Charging a car faster may help its deadline while raising the site's peak; saving energy on cooling may compromise comfort.
 
-Meet EV targets before departure, keep the office comfortable, complete maintenance and the wash, and manage the grid challenge. The inspector shows power, deadlines, ETAs and the effects of your choices. Important events return fast-forward to 1× to give you time to react.
+**Opti**, your in-game colleague, introduces the site, highlights forecasts and risks, links you to the relevant controls and explains outcomes. Click tasks or equipment to act; pause whenever you need time to plan.
 
-| Control | Action |
+| Feature | What you experience |
+|---|---|
+| **Demo / Normal modes** | Approximately 8 / 20 minutes of running clock time, plus onboarding and pauses. |
+| **Deterministic simulation** | Real power, energy and cost accounting shared by the player and comparison strategies. |
+| **Events and deadlines** | EV arrivals, a changed departure, clouds, solar cleaning and the grid challenge. |
+| **Services and efficiency** | Keep vehicles ready, rooms comfortable and flexible work complete while managing the bill and peak. |
+| **Opti guidance** | Contextual advice, task controls, forecasts and recent notes for rereading. |
+| **Score and local ranking** | Up to 1000 points; recovered services still earn points after mistakes. |
+| **Living site** | Moving cars and pedestrians, changing daylight/weather and animated power flows. |
+| **Offline audio and storage** | Original synthesized music/SFX, adjustable volume and local JSON settings/rankings. |
+
+## Why it exists
+
+The game makes energy-management tradeoffs visible and approachable. The player manages the site manually, then sees the **same scenario** simulated under three approaches: **Normal/default operation**, **the player's decisions**, and an **OptiMesh demo-reference strategy**.
+
+![End-of-day service and cost comparison for Normal, Player and OptiMesh demo](docs/images/results.png)
+
+The comparison demonstrates the value of coordinating services and energy use. The OptiMesh reference strategy is an illustrative simulation controller and is **not the production OptiMesh optimization engine**.
+
+## Demo flow
+
+**Enter a name → meet Opti → manage the office day → compare results → retry or check the leaderboard.**
+
+Click a task or site object to open its inspector. **All tasks** retains completed/missed requirements; **Recent notes** pauses the day for rereading. Settings offer music/effects volume, a sound preview, mute and reduced ambient activity.
+
+| Shortcut | Action |
 |---|---|
 | Space | Pause / resume |
 | 1 / 2 / 3 | 1× / 5× / 15× speed |
 | Esc | Close inspector or skip the introduction |
 | F11 | Toggle fullscreen |
 
-Settings include music/effects volume, a sound preview, mute and reduced ambient activity. **Reset Day** and **Play Again** start a new scenario. The leaderboard retains the top 50 current-rule runs and displays the top ten; it has no network synchronization. Administrator reset: **Ctrl+Shift+Delete** on the leaderboard, then confirm.
+The leaderboard is local to the machine, retains the top 50 current-rule runs and displays ten. Exhibition administrators can reset it with **Ctrl+Shift+Delete** on that screen, then confirm.
 
-## Current status
+## Technical overview
 
-Playable offline exhibition prototype with Demo/Normal modes, service-based scoring, deterministic comparisons and repeated-session regression coverage. The latest gameplay polish baseline is `44c76ba`. Rendered review covered **1920×1080**, **1366×768** and **1280×720**. Independent first-time visitor feedback, sustained performance on the actual exhibition laptop and perceived speaker balance remain practical validation steps.
+**Godot 4.5+ · GDScript · Compatibility renderer · lightweight 2D/2.5D site · deterministic simulation · local JSON persistence.**
 
-The scenario, thermal model and solar-use metric are deliberately simplified. See the scenario documentation for their assumptions and limits.
+Source is in `scripts/`, scenes in `scenes/`, and regression suites in `tests/`. Godot `.gd.uid` files are tracked script identifiers. Builds, runtime downloads, editor caches and validation captures stay outside the published source tree.
 
 ## Documentation
 
-- [SIMULATION.md](SIMULATION.md) — core energy model and accounting.
-- [SCENARIO.md](SCENARIO.md) — events, devices, score rules, reference policies and persistence.
+- [SIMULATION.md](SIMULATION.md) — energy model and accounting.
+- [SCENARIO.md](SCENARIO.md) — events, devices, score rules and reference policies.
 - [AUDIO.md](AUDIO.md) — synthesized audio and provenance.
-- [VALIDATION.md](VALIDATION.md) — final test counts, rendered coverage and remaining checks.
-- [POLISH_REVIEW.md](POLISH_REVIEW.md) — current refinement issue log, playthroughs and outcomes.
-- [PLAYTEST.md](PLAYTEST.md) — historical developer playtest report, clearly marked as superseded.
+- [VALIDATION.md](VALIDATION.md) — gameplay regression and rendered coverage.
+- [POLISH_REVIEW.md](POLISH_REVIEW.md) — refinement issue log and playthrough outcomes.
+- [RELEASE.md](RELEASE.md) — Windows export, packaging and exported-build checks.
+- [PLAYTEST.md](PLAYTEST.md) — historical developer report, superseded by the current polish review.
 
-Source is in `scripts/`, scenes in `scenes/`, and regression suites in `tests/`. Godot `.gd.uid` files are tracked stable script identifiers. Local caches, runtime downloads, builds and validation captures are excluded from publication.
+## Status and validation
 
-## Run regression checks
+The game is ready for an **offline exhibition demo**, with both play modes, real strategy comparisons and local rankings. This first Windows release is marked as a pre-release. Gameplay was reviewed at **1920×1080**, **1366×768** and **1280×720**; export-specific checks are recorded in [RELEASE.md](RELEASE.md).
 
-Pass your Godot console executable to the Windows test runner:
+The scenario, thermal model and solar-use metric are simplified for demonstration. Independent visitor feedback and sustained performance/audio checks on the actual exhibition laptop remain useful validation steps; detailed limits are in the linked reports.
 
-```powershell
-./Test-Prototype.ps1 -GodotPath 'C:\Tools\Godot.exe'
-./Test-Prototype.ps1 -GodotPath 'C:\Tools\Godot.exe' -Capture -Resolution 1280x720
-```
+For regression checks: `./Test-Prototype.ps1 -GodotPath 'C:\Tools\Godot.exe'`. Add `-Capture -Resolution 1366x768` for rendered captures; 1920x1080 and 1280x720 are also supported. Tests use separate stores from player rankings.
 
-The runner executes seven suites. Rendered captures and journals are written to ignored `artifacts/`; test stores are separate from player rankings. Use 1920x1080 or 1366x768 for the other target sizes. Automated checks protect behavior; visitor playtesting is still needed to assess comprehension and enjoyment.
+## Related project
+
+Visit [**Praz40/OptiMesh**](https://github.com/Praz40/OptiMesh) for the main OptiMesh platform and its Web Simulator. This Godot game remains a separate repository and release.
