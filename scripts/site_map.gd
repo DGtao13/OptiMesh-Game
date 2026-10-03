@@ -29,7 +29,7 @@ func quad(x: float, y: float, w: float, d: float, skew: float, height: float = 0
 	return PackedVector2Array([Vector2(x, y), Vector2(x + w, y), Vector2(x + w + skew, y + d), Vector2(x + w + skew, y + d + height), Vector2(x + skew, y + d + height), Vector2(x, y + height)])
 
 func object_at(point: Vector2) -> String:
-	var badges := {"solar": Rect2(435, 15, 145, 32), "hvac": Rect2(798, 54, 80, 32), "inverter": Rect2(1083, 194, 105, 32), "battery": Rect2(1076, 490, 100, 32), "grid": Rect2(1220, 409, 80, 32)}
+	var badges := {"solar": Rect2(435, 15, 145, 32), "hvac": Rect2(798, 54, 80, 32), "inverter": Rect2(1083, 194, 105, 32), "battery": Rect2(1076, 490, 100, 32), "grid": Rect2(1240, 230, 80, 32)}
 	for id in badges:
 		if badges[id].has_point(point): return id
 	# Reverse order prioritizes roof equipment over its parent building.
@@ -99,7 +99,6 @@ func _draw() -> void:
 	draw_style_box(style(Color("#d8e5dd"), 28), Rect2(10, 0, 1360, 610))
 	draw_style_box(style(Color("#e4ebe3"), 20), Rect2(55, 20, 1260, 480))
 	draw_style_box(style(Color("#7d9193"), 16), Rect2(40, 510, 1290, 80))
-	draw_rect(Rect2(1180, 515, 150, 100), Color("#7d9193"))
 	for x in range(85, 1260, 95):
 		draw_line(Vector2(x, 550), Vector2(x + 45, 550), Color("#d5e1dc"), 3, true)
 	txt(Vector2(1055, 580), "ENTRY / EXIT  →", 16, Color("#eef4ef"))
@@ -126,7 +125,7 @@ func _draw() -> void:
 			draw_line(Vector2(px + 3, py + 11), Vector2(px + 43, py + 11), Color("#6a9eae"), 1, true)
 			draw_line(Vector2(px + 20, py), Vector2(px + 27, py + 23), Color("#6a9eae"), 1, true)
 	box(805, 95, 105, 65, 20, 20, Color("#e8efed"), Color("#98adb2"))
-	for center in [Vector2(837, 124), Vector2(879, 138)]:
+	for center in [Vector2(842.5, 127.5), Vector2(892.5, 127.5)]:
 		draw_circle(center, 18, Color("#657f86"))
 		draw_arc(center, 12, 0, TAU, 20, Color("#c8d7d6"), 2, true)
 		draw_line(center - Vector2(9, 0), center + Vector2(9, 0), Color("#c8d7d6"), 2, true)
@@ -174,4 +173,4 @@ func _draw() -> void:
 	badge(Vector2(98, 281), "EV charging · 3 bays", MINT)
 	badge(Vector2(1083, 194), "Inverter", Color("#c99242"))
 	badge(Vector2(1076, 490), "Battery", MINT)
-	badge(Vector2(1220, 409), "Grid", Color("#8b80ad"))
+	badge(Vector2(1240, 230), "Grid", Color("#8b80ad"))
